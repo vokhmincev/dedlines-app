@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Редактировать' if edit else 'Новый дедлайн' }}{% endblock %}
+
+{% block head_extra %}
+<style>
+/* ===== Панель формы ===== */
+.form-panel{
+  padding:24px;
+  max-width:560px;
+  margin:auto;
+}
+
+/* ===== Базовые поля ===== */
+.form-field{ display:flex; flex-direction:column; gap:6px; }
+.form-field label{ font-size:13px; color:var(--muted); }
+
+/* общий инпут */
+.form-input{
+  background:color-mix(in srgb, var(--card), white 2%);
+  border:1px solid color-mix(in srgb, var(--line), white 12%);
+  border-radius:12px;
+  padding:12px 14px;
+  color:var(--text);
+  transition:.15s;
+}
+.form-input:hover{
+  border-color: color-mix(in srgb, var(--line), white 18%);
+}
+.form-input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--accent), transparent 70%);
+  outline:none;
+}
+
+/* ===== Красивый SELECT ===== */
+.select-wrap{
+  position: relative;
+}
+.select{
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width:100%;
+  background:color-mix(in srgb, var(--card), white 2%);
+  border:1px solid color-mix(in srgb, var(--line), white 12%);
+  border-radius:12px;
+  padding:12px 42px 12px 14px; /* справа место под стрелку */
+  color:var(--text);
+  transition:.15s;
+  cursor: pointer;
+}
+.select:hover{
+  border-color: color-mix(in srgb, var(--line), white 18%);
+}
+.select:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--accent), transparent 70%);
+  outline:none;
+}
+.select-wrap::after{
+  /* стрелка */
+  content:"";
+  position:absolute; right:12px; top:50%; transform: translateY(-50%);
+  width:18px; height:18px; pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255,255,255,.25) 0 1px, transparent 1px),
+    conic-gradient(from 225deg at 50% 55%, color-mix(in srgb, var(--text), transparent 0%) 0 25%, transparent 0 100%);
+  /* рисуем треугольник ↓ через conic-gradient (деликатный) */
+  mask:
+    radial-gradient(8px 8px at 50% 55%, #0000 40%, #000 41%);
+  opacity:.75;
+}
+
+/* Текущий тип — чип справа от лейбла */
+.kind-current{
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.18rem .5rem; border-radius:9999px;
+  border:1px solid color-mix(in srgb, var(--line), white 12%);
+  background: color-mix(in srgb, var(--card), white 3%);
+  font-size:.75rem; color:var(--text);
+}
+
+/* ===== Быстрый выбор типа — чипы ===== */
+.kind-quick{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.kind-btn{
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.32rem .6rem; border-radius:9999px;
+  font-size:.8rem; cursor:pointer; user-select:none;
+  background: color-mix(in srgb, var(--card), white 2%);
+  border:1px solid color-mix(in srgb, var(--line), white 10%);
+  color: var(--text);
+  transition:.12s;
+}
+.kind-btn:hover{ transform: translateY(-1px); }
+.kind-btn.is-active{
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent), transparent 80%);
+}
+
+/* оттенки по типам (тонко) */
+.kind--лабораторная{ border-color: color-mix(in srgb, var(--lab), transparent 70%); }
+.kind--дз{ border-color: color-mix(in srgb, var(--hw), transparent 70%); }
+.kind--контрольная{ border-color: color-mix(in srgb, var(--ctrl), transparent 70%); }
+.kind--типовой\ расчет{ border-color: color-mix(in srgb, var(--typ), transparent 70%); }
+.kind--тест{ border-color: color-mix(in srgb, var(--test), transparent 70%); }
+
+/* чекбокс-строка */
+.checkbox-line{ display:flex; align-items:center; gap:8px; margin-top:6px; color:var(--text); }
+
+/* кнопки низа формы */
+.btn-row{ display:flex; gap:8px; padding-top:8px; }
+.btn-cancel{
+  padding:10px 14px; border-radius:12px;
+  border:1px solid var(--line);
+  background:color-mix(in srgb, var(--card), white 2%);
+  color:var(--text);
+  transition:.12s;
+}
+.btn-cancel:hover{ background:color-mix(in srgb, var(--card), white 6%); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card-dark elev-1 relief form-panel">
+
+  <h1 class="text-xl font-bold mb-4">
+    {{ 'Редактировать дедлайн' if edit else 'Новый дедлайн' }}
+  </h1>
+
+  <form method="post" class="space-y-4">
+
+    <div class="form-field">
+      <label>Предмет *</label>
+      <input type="text" name="subject" class="form-input" value="{{ d.subject if edit else '' }}">
+    </div>
+
+    <div class="form-field">
+      <label>Название </label>
+      <input type="text" name="title" class="form-input" required value="{{ d.title if edit else '' }}">
+    </div>
+
+    <!-- Тип дедлайна -->
+    <div class="form-field">
+      <div class="flex items-center justify-between">
+        <label>Тип *</label>
+        <span id="kindCurrent" class="kind-current">{{ (d.kind if edit else 'дз')|capitalize }}</span>
+      </div>
+
+      <div class="select-wrap">
+        <select name="kind" id="kindSelect" class="select" required>
+          {% for k in DEADLINE_TYPES %}
+            {% set selected = (d.kind == k) if edit else (k == 'дз') %}
+            <option value="{{ k }}" {{ 'selected' if selected else '' }}>{{ k|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Быстрый выбор -->
+      <div class="kind-quick">
+        {% for k in DEADLINE_TYPES %}
+          {% set is_active = (d.kind == k) if edit else (k == 'дз') %}
+          <button type="button"
+                  class="kind-btn kind--{{ k }} {{ 'is-active' if is_active else '' }}"
+                  data-kind="{{ k }}">{{ k|capitalize }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label>Ссылка (опционально)</label>
+      <input type="url" name="link" class="form-input" placeholder="https://…"
+             value="{{ (d.link if edit else '') | default('', true) }}">
+      <small style="color:var(--muted);font-size:12px">Откроется по клику в календаре</small>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div class="form-field">
+        <label>Дата *</label>
+        <input type="date" name="date" class="form-input" required value="{{ date_val if edit else '' }}">
+      </div>
+      <div class="form-field">
+        <label>Время</label>
+        <input type="time" name="time" class="form-input" value="{{ time_val if edit else '' }}">
+        <small style="color:var(--muted);font-size:12px">Если "весь день" — игнорируется</small>
+      </div>
+    </div>
+
+    <label class="checkbox-line">
+      <input type="checkbox" name="all_day" {% if edit and d.all_day %}checked{% endif %}>
+      Весь день
+    </label>
+
+    <div class="btn-row">
+      <button class="btn-dark btn-accent">
+        {{ 'Сохранить' if edit else 'Создать' }}
+      </button>
+      <a href="{{ url_for('admin_deadlines_list') }}" class="btn-cancel">Отмена</a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+/* Синхронизация селекта, чипа и быстрых кнопок */
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('kindSelect');
+  const chip = document.getElementById('kindCurrent');
+  const btns = Array.from(document.querySelectorAll('.kind-btn'));
+
+  function updateUI(val){
+    // подпись-чил
+    chip.textContent = (val || '').charAt(0).toUpperCase() + (val || '').slice(1);
+    // активное состояние быстрых кнопок
+    btns.forEach(b => b.classList.toggle('is-active', b.dataset.kind === val));
+  }
+
+  sel.addEventListener('change', (e) => {
+    updateUI(e.target.value);
+  });
+
+  btns.forEach(b => {
+    b.addEventListener('click', () => {
+      sel.value = b.dataset.kind;
+      updateUI(b.dataset.kind);
+    });
+  });
+
+  // первоначальное состояние
+  updateUI(sel.value);
+});
+</script>
+{% endblock %}

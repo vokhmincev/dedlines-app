@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+
+{% block head_extra %}
+<style>
+.auth-box{
+  max-width:420px;
+  margin:auto;
+  padding:28px;
+}
+.auth-title{
+  font-size:1.4rem;
+  font-weight:600;
+  margin-bottom:18px;
+}
+.auth-label{
+  font-size:.85rem;
+  color:var(--muted);
+}
+.auth-input{
+  width:100%;
+  background:color-mix(in srgb, var(--card), white 2%);
+  border:1px solid color-mix(in srgb, var(--line), white 12%);
+  border-radius:12px;
+  padding:11px 14px;
+  color:var(--text);
+  transition:.15s;
+}
+.auth-input:hover{
+  border-color:color-mix(in srgb, var(--line), white 18%);
+}
+.auth-input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--accent), transparent 70%);
+  outline:none;
+}
+
+/* кнопка */
+.auth-btn{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  font-weight:500;
+  background:color-mix(in srgb, var(--accent), black 22%);
+  border:1px solid color-mix(in srgb, var(--accent), black 45%);
+  color:#fff;
+  box-shadow:
+    0 2px 10px rgba(0,0,0,.35),
+    0 0 0 1px color-mix(in srgb, var(--accent), transparent 80%);
+  transition:.15s;
+}
+.auth-btn:hover{
+  background:color-mix(in srgb, var(--accent), black 15%);
+  box-shadow:
+    0 4px 16px rgba(0,0,0,.38),
+    0 0 0 1px color-mix(in srgb, var(--accent), transparent 70%);
+  transform:translateY(-1px);
+}
+
+/* foot */
+.auth-footer{
+  margin-top:14px;
+  font-size:.85rem;
+  color:var(--muted);
+}
+.auth-footer a{
+  color:var(--accent);
+  text-decoration:none;
+}
+.auth-footer a:hover{
+  text-decoration:underline;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card-dark elev-1 relief auth-box">
+
+  <h1 class="auth-title">Вход</h1>
+
+  <form method="post" class="space-y-4">
+
+    <div>
+      <label class="auth-label">Логин</label>
+      <input name="username" class="auth-input" required>
+    </div>
+
+    <div>
+      <label class="auth-label">Пароль</label>
+      <input name="password" type="password" class="auth-input" required>
+    </div>
+
+    <button class="auth-btn">Войти</button>
+  </form>
+
+  <p class="auth-footer">
+    Нет аккаунта? <a href="{{ url_for('register') }}">Создать</a>
+  </p>
+
+</div>
+{% endblock %}

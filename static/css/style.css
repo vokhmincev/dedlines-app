@@ -1,0 +1,295 @@
+/* ========== THEME TOKENS (light as fallback) ========== */
+:root{
+  --bg-page: #f7f8fb;
+  --text: #0e1013;
+  --muted: #6b7280;
+  --card: #ffffff;
+  --card-2:#fafafa;
+  --line: #e8eaf0;
+
+  --accent: #3b82f6;
+
+  --today: #eef5ff;
+  --event-bg: #f6f8ff;
+  --event-border: #e4e8ff;
+
+  --lab:#3b82f6;   /* лр */
+  --hw:#7c3aed;    /* дз */
+  --ctrl:#ef4444;  /* контрольная */
+  --typ:#eab308;   /* типовой расчёт */
+  --test:#10b981;  /* тест */
+}
+
+/* ====== DARK (kept for completeness) ====== */
+html[data-theme="dark"]{
+  --bg-page: #0b0d10;
+  --text: #d9dee7;
+  --muted:#8a93a3;
+  --card: #0f1217;
+  --card-2:#0e1116;
+  --line: #1a1f27;
+
+  --accent:#6aa3ff;
+
+  --today:#142033;
+  --event-bg:#141a22;
+  --event-border:#223044;
+
+  --lab:#6aa3ff;
+  --hw:#9b8cff;
+  --ctrl:#ff8f8f;
+  --typ:#f2c75c;
+  --test:#67d4a7;
+}
+
+/* ========== BASE LAYOUT ========== */
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg-page); color:var(--text);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.container{max-width:1100px; margin:0 auto; padding:16px;}
+.nav{
+  position: sticky; top:0; z-index:50;
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg-page), transparent 30%);
+  border-bottom:1px solid var(--line);
+}
+.nav-row{
+  display:flex; align-items:center; gap:12px; padding:10px 16px;
+  position:relative;
+}
+.nav a{color:var(--text); text-decoration:none; padding:8px 10px; border-radius:10px;}
+.nav a:hover{background: color-mix(in srgb, var(--card), transparent 70%);}
+.brand{font-weight:600;}
+.spacer{flex:1}
+
+/* Кнопки базовые */
+.btn{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 12px; border-radius:10px; border:1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+}
+.btn:hover{filter:brightness(1.03)}
+
+/* Бейдж */
+.badge{padding:2px 8px; border-radius:9999px; font-size:12px; border:1px solid var(--line); color:var(--muted);}
+
+/* Светлая карточка (в лайте) */
+.card{
+  background: linear-gradient(180deg, var(--card), var(--card-2));
+  border:1px solid var(--line);
+  border-radius:16px; box-shadow:0 1px 10px rgba(0,0,0,.06);
+  padding: 16px;
+}
+
+/* Flash */
+.flash{padding:10px 12px; border-radius:10px; border:1px solid var(--line); margin:8px 0;}
+.flash.success{border-color:#16a34a40}
+.flash.error{border-color:#ef444440}
+
+/* ========== DARK-FRIENDLY SHADOWS ========== */
+html[data-theme="dark"]{
+  --shadow-1: 0 .5px 0 rgba(255,255,255,.06), 0 1px 6px rgba(0,0,0,.28);
+  --shadow-2: 0 .5px 0 rgba(255,255,255,.08), 0 6px 18px rgba(0,0,0,.35), 0 4px 18px rgba(30,80,150,.20);
+  --shadow-3: 0 1px 0 rgba(255,255,255,.10), 0 10px 28px rgba(0,0,0,.45), 0 8px 32px rgba(70,120,200,.22);
+  --shadow-accent: 0 8px 30px color-mix(in srgb, var(--accent), transparent 78%);
+  --stroke: 1px solid color-mix(in srgb, var(--line), white 12%);
+}
+html:not([data-theme="dark"]){
+  --shadow-1: 0 1px 6px rgba(0,0,0,.08);
+  --shadow-2: 0 8px 24px rgba(0,0,0,.12);
+  --shadow-3: 0 16px 36px rgba(0,0,0,.14);
+  --shadow-accent: 0 10px 30px color-mix(in srgb, var(--accent), transparent 80%);
+  --stroke: 1px solid var(--line);
+}
+.elev-1{ box-shadow: var(--shadow-1); }
+.elev-2{ box-shadow: var(--shadow-2); }
+.elev-3{ box-shadow: var(--shadow-3); }
+
+/* Дарковая карточка */
+.card-dark {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 2%), var(--card-2));
+  border: var(--stroke);
+  border-radius: 16px;
+  box-shadow: var(--shadow-1);
+  transition: box-shadow .18s ease, transform .12s ease, border-color .18s ease;
+}
+.card-dark:hover{
+  box-shadow: var(--shadow-2), var(--shadow-accent);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--line), white 18%);
+}
+/* Лёгкий «ореол» */
+.card-dark.relief{ position: relative; overflow: hidden; }
+.card-dark.relief::after{
+  content:""; position:absolute; inset:-20%; pointer-events:none;
+  background: radial-gradient(80% 60% at 50% 0%, rgba(255,255,255,.06), transparent 60%);
+}
+
+/* ===== Кнопки тёмный неон (толще + глубже) — базовый дарк ===== */
+.btn-dark {
+  background: #0c1016;
+  border: 1px solid rgba(255,255,255,.05);
+  border-radius: 14px;
+  padding: 12px 20px;
+  font-weight: 500;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.05),
+    0 4px 14px rgba(0,0,0,.45),
+    0 0 14px rgba(120,150,255,.08);
+  transition: .22s ease;
+}
+.btn-dark:hover {
+  background: #10151d;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.07),
+    0 8px 22px rgba(0,0,0,.55),
+    0 0 22px rgba(120,150,255,.14);
+  transform: translateY(-2px);
+}
+
+/* Акцентная кнопка — базовый дарк */
+.btn-accent {
+  background: color-mix(in srgb, var(--accent), black 30%);
+  color: #fff;
+  border: 1px solid rgba(80,120,255,.4);
+  border-radius: 14px;
+  padding: 12px 20px;
+  font-weight: 600;
+  box-shadow:
+    0 5px 18px rgba(0,0,0,.45),
+    0 0 20px rgba(80,120,255,.22);
+  transition: .22s ease;
+}
+.btn-accent:hover {
+  background: color-mix(in srgb, var(--accent), black 20%);
+  box-shadow:
+    0 8px 26px rgba(0,0,0,.6),
+    0 0 26px rgba(80,120,255,.32);
+  transform: translateY(-2px);
+}
+
+/* ===== ЧИПЫ ТИПОВ ДЕДЛАЙНОВ ===== */
+.chip{
+  display:inline-flex; align-items:center; gap:.25rem;
+  font-size:.75rem; padding:.125rem .5rem; border-radius:8px;
+  border: 1px solid color-mix(in srgb, var(--line), white 8%);
+  background: color-mix(in srgb, var(--card), white 3%);
+  color: var(--text);
+}
+.chip--lab { border-color: color-mix(in srgb, var(--lab), transparent 70%); }
+.chip--hw  { border-color: color-mix(in srgb, var(--hw),  transparent 70%); }
+.chip--ctrl{ border-color: color-mix(in srgb, var(--ctrl),transparent 70%); }
+.chip--typ { border-color: color-mix(in srgb, var(--typ), transparent 70%); }
+.chip--test{ border-color: color-mix(in srgb, var(--test),transparent 70%); }
+
+/* =========================
+   ULTRA MODE — теперь ОСНОВНОЙ
+   ========================= */
+html.ultra{
+  --bg-page: #07090d;
+  --text: #e7ecf6;
+  --muted:#a2acc0;
+  --card: #0b0f15;
+  --card-2:#0a0d13;
+  --line: #161c25;
+  --accent:#7aa2ff;
+}
+html.ultra body{
+  background:
+    radial-gradient(1200px 800px at 80% -10%, rgba(100,140,255,.10), transparent 55%),
+    radial-gradient(900px 600px at -10% 20%, rgba(120,80,255,.08), transparent 50%),
+    linear-gradient(180deg, #07090d, #07090d);
+  position: relative;
+  overflow-x: hidden;
+}
+html.ultra body::before{
+  content:"";
+  position:fixed; inset:-2px;
+  pointer-events:none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 2px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 2px);
+  mix-blend-mode: soft-light;
+  opacity:.35;
+  z-index:-1;
+}
+html.ultra .nav{
+  background: color-mix(in srgb, #07090d, transparent 10%);
+  border-bottom: 1px solid color-mix(in srgb, var(--line), white 10%);
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px) saturate(120%);
+}
+html.ultra .card-dark{
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 3%), var(--card-2));
+  border: 1px solid color-mix(in srgb, var(--line), white 12%);
+  box-shadow:
+    0 10px 30px rgba(0,0,0,.55),
+    0 0 0 1px color-mix(in srgb, var(--line), transparent 60%) inset,
+    0 0 60px color-mix(in srgb, var(--accent), transparent 90%);
+}
+html.ultra .card-dark:hover{
+  box-shadow:
+    0 14px 44px rgba(0,0,0,.65),
+    0 0 0 1px color-mix(in srgb, var(--line), white 18%) inset,
+    0 0 80px color-mix(in srgb, var(--accent), transparent 80%);
+  transform: translateY(-2px);
+}
+html.ultra .btn-dark{
+  background: #0c1016;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 14px;
+  padding: 12px 22px;
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.05),
+    0 10px 26px rgba(0,0,0,.55),
+    0 0 18px rgba(110,140,255,.12);
+  transition: background .2s ease, box-shadow .2s ease, transform .18s ease;
+}
+html.ultra .btn-dark:hover{
+  background: #101622;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.08),
+    0 16px 38px rgba(0,0,0,.65),
+    0 0 28px rgba(110,140,255,.22);
+  transform: translateY(-2px);
+}
+html.ultra .btn-accent{
+  background: color-mix(in srgb, var(--accent), black 28%);
+  color:#fff;
+  border: 1px solid color-mix(in srgb, var(--accent), black 40%);
+  border-radius: 14px;
+  padding: 12px 22px;
+  font-weight: 700;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,.55),
+    0 0 26px color-mix(in srgb, var(--accent), transparent 55%),
+    0 0 2px color-mix(in srgb, var(--accent), transparent 20%) inset;
+  transition: background .2s, box-shadow .2s, transform .18s;
+}
+html.ultra .btn-accent:hover{
+  background: color-mix(in srgb, var(--accent), black 18%);
+  box-shadow:
+    0 16px 42px rgba(0,0,0,.7),
+    0 0 38px color-mix(in srgb, var(--accent), transparent 45%),
+    0 0 3px color-mix(in srgb, var(--accent), transparent 30%) inset;
+  transform: translateY(-2px);
+}
+
+/* ===== Tailwind bridge (utility colors map to tokens) ===== */
+.bg-white, .bg-gray-100, .bg-gray-200, .bg-gray-900, .bg-blue-600, .bg-green-600 { background: var(--card) !important; }
+.text-gray-500, .text-gray-600, .text-gray-700, .text-gray-800 { color: var(--muted) !important; }
+.text-white { color: var(--text) !important; }
+.shadow, .shadow-lg { box-shadow: 0 4px 18px rgba(0,0,0,.30) !important; }
+.rounded-2xl, .rounded-xl, .rounded-lg, .rounded { border-radius: 16px !important; }
+.hover\:bg-gray-200:hover, .hover\:bg-gray-100:hover, .hover\:bg-blue-700:hover, .hover\:bg-black:hover {
+  background: color-mix(in srgb, var(--card), white 5%) !important;
+}

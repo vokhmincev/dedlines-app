@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Приветствие -->
+  <div class="card-dark elev-1 relief" style="padding:24px;">
+    <div class="flex items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold">
+          {{ greet }}{% if uname %}, {{ uname }}{% endif %}!
+        </h1>
+        <p class="mt-1" style="color:var(--muted);">
+          Сегодня {{ now.strftime('%d.%m.%Y') }}. Ниже — дедлайны на ближайшие 10 дней.
+        </p>
+      </div>
+
+      <!-- Большие «сочные» кнопки действий -->
+      <div class="hidden md:flex items-center gap-3">
+        <a href="{{ url_for('calendar_page') }}" class="btn-dark btn-accent">
+          📅 Открыть календарь
+        </a>
+        <a href="{{ url_for('subjects_page') }}" class="btn-dark">
+          📊 Баллы по предметам
+        </a>
+        {# Никакого «➕ Добавить дедлайн» сверху — он есть ниже #}
+      </div>
+    </div>
+  </div>
+
+  <!-- Ближайшие дедлайны (10 дней) -->
+  <div class="card-dark elev-1 relief" style="padding:24px;">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-semibold">Ближайшие дедлайны (10 дней)</h2>
+      {% if current_user.is_authenticated and current_user.is_admin %}
+      <a href="{{ url_for('admin_add_deadline') }}" class="btn-dark btn-accent">➕ Добавить</a>
+      {% endif %}
+    </div>
+
+    {% if upcoming %}
+      <ul class="divide-y" style="--tw-divide-color: var(--line);">
+        {% for d in upcoming %}
+          <li class="py-3 flex items-center justify-between">
+            <div class="min-w-0">
+              <div class="font-medium truncate">
+                {% if d.subject %}
+                  <span style="color:var(--muted)">{{ d.subject }} • </span>
+                {% endif %}
+                {{ d.title }}
+              </div>
+              <div class="text-sm flex items-center gap-2" style="color:var(--muted)">
+                <span>
+                  {{ d.due_at.strftime('%d.%m.%Y') }}{% if not d.all_day %}, {{ d.due_at.strftime('%H:%M') }}{% endif %}
+                </span>
+
+                {% if d.kind %}
+                  <span class="chip chip--{{ 'lab' if d.kind=='лабораторная'
+                                             else 'hw' if d.kind=='дз'
+                                             else 'ctrl' if d.kind=='контрольная'
+                                             else 'typ' if d.kind=='типовой расчет'
+                                             else 'test' }}">
+                    {{ d.kind }}
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if d.link %}
+            <a href="{{ d.link }}" target="_blank" rel="noopener" class="btn-dark">↗</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p style="color:var(--muted)">На ближайшие 10 дней нет дедлайнов 🎉</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

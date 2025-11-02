@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Дедлайны{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Дедлайны</h1>
+    <a href="{{ url_for('admin_add_deadline') }}"
+       class="px-3 py-2 rounded bg-gray-900 text-white hover:bg-black">+ Новый дедлайн</a>
+  </div>
+
+  {% if items %}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-gray-500">
+        <th class="text-left py-2">Дата/время</th>
+        <th class="text-left py-2">Тип</th>
+        <th class="text-left py-2">Предмет</th>
+        <th class="text-left py-2">Название</th>
+        <th class="text-left py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in items %}
+      <tr class="border-t">
+        <td class="py-2">
+          {% if d.all_day %}
+            {{ d.due_at.strftime("%Y-%m-%d") }} <span class="text-gray-400">(весь день)</span>
+          {% else %}
+            {{ d.due_at.strftime("%Y-%m-%d %H:%M") }}
+          {% endif %}
+        </td>
+        <td class="py-2">
+          <span class="px-2 py-1 rounded-full text-xs border">
+            {{ d.kind|capitalize }}
+          </span>
+        </td>
+        <td class="py-2">{{ d.subject or "—" }}</td>
+        <td class="py-2">{{ d.title }}</td>
+        <td class="py-2 text-right">
+          <a href="{{ url_for('admin_deadline_edit', deadline_id=d.id) }}"
+             class="px-2 py-1 rounded border hover:bg-gray-50">Редактировать</a>
+          <form method="post" action="{{ url_for('admin_deadline_delete', deadline_id=d.id) }}"
+                class="inline"
+                onsubmit="return confirm('Удалить этот дедлайн?');">
+            <button class="px-2 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50">
+              Удалить
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-gray-600">Пока нет дедлайнов.</p>
+  {% endif %}
+</div>
+{% endblock %}

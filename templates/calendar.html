@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Календарь{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div id="calendar"></div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
+
+<!-- Tippy.js для красивых кликабельных тултипов -->
+<link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
+<script src="https://unpkg.com/@popperjs/core@2"></script>
+<script src="https://unpkg.com/tippy.js@6"></script>
+
+<style>
+/* ==== Общие (month/week/day/list) ==== */
+.fc, .fc .fc-view-harness,
+.fc .fc-daygrid, .fc .fc-timegrid{ background: transparent; }
+.fc-theme-standard .fc-scrollgrid{ background: transparent; border: 1px solid var(--line) !important; }
+.fc-theme-standard .fc-scrollgrid td,
+.fc-theme-standard .fc-scrollgrid th{ border-color: var(--line) !important; }
+
+.fc .fc-toolbar.fc-header-toolbar{ padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.fc .fc-toolbar-title{ font-weight: 600; letter-spacing:.2px; }
+
+/* Кнопки: базовые */
+.fc .fc-button{
+  background: var(--card-2); border:1px solid var(--line); color:var(--text);
+  text-transform: lowercase; border-radius: 12px; padding: 6px 12px;
+  transition: filter .15s ease, background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .12s ease;
+}
+.fc .fc-button-group{ display:flex; gap:6px; }
+.fc .fc-button-group .fc-button{ border-radius: 12px !important; margin:0; }
+
+/* ----- LIGHT THEME ----- */
+html[data-theme="light"] .fc .fc-button:hover{
+  background: color-mix(in srgb, var(--card-2), var(--accent) 5%);
+  color: var(--text) !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,.08);
+}
+html[data-theme="light"] .fc .fc-button-primary:not(:disabled).fc-button-active,
+html[data-theme="light"] .fc .fc-button-primary:not(:disabled):active{
+  background: color-mix(in srgb, var(--accent), white 8%) !important;
+  color: #fff !important;
+  border-color: color-mix(in srgb, var(--accent), black 25%) !important;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent), transparent 70%);
+  transform: translateY(-1px);
+}
+html[data-theme="light"] .fc .fc-button-primary:not(:disabled).fc-button-active:hover{
+  background: color-mix(in srgb, var(--accent), white 4%) !important;
+  color:#fff !important;
+}
+
+/* ----- DARK THEME ----- */
+html[data-theme="dark"] .fc .fc-button{
+  background: color-mix(in srgb, var(--card-2), black 25%);
+  border-color: color-mix(in srgb, var(--line), black 30%);
+  color: var(--text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--card), black 50%) inset;
+}
+html[data-theme="dark"] .fc .fc-button:hover{
+  background: color-mix(in srgb, var(--card-2), var(--accent) 8%);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent), transparent 70%);
+}
+html[data-theme="dark"] .fc .fc-button-primary:not(:disabled).fc-button-active,
+html[data-theme="dark"] .fc .fc-button-primary:not(:disabled):active{
+  background: color-mix(in srgb, var(--accent), black 55%) !important;
+  color: #fff !important;
+  border-color: color-mix(in srgb, var(--accent), black 40%) !important;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent), transparent 40%);
+  transform: translateY(-1px);
+}
+
+/* Строка с днями недели */
+html[data-theme="light"] .fc .fc-col-header{ background: color-mix(in srgb, var(--card-2), black 3%); }
+html[data-theme="dark"] .fc .fc-col-header{ background: color-mix(in srgb, var(--card-2), black 7%); }
+.fc .fc-col-header-cell-cushion{ color: color-mix(in srgb, var(--muted), var(--text) 15%); font-weight:700; }
+
+/* Номера дней и «сегодня» */
+.fc .fc-daygrid-day-number{ color: var(--muted); }
+.fc .fc-day-today{ background: var(--today); }
+
+/* События */
+.fc-event{
+  background: var(--event-bg);
+  border: 1px solid var(--event-border);
+  border-radius: 10px;
+  box-shadow: 0 3px 14px rgba(0,0,0,.14);
+}
+.fc-event .fc-event-main{ padding: 4px 8px; }
+
+/* Цвета по типам */
+.fc-event.kind-лабораторная{ border-color: color-mix(in srgb, var(--lab), white 25%); }
+.fc-event.kind-дз{ border-color: color-mix(in srgb, var(--hw), white 25%); }
+.fc-event.kind-контрольная{ border-color: color-mix(in srgb, var(--ctrl), white 25%); }
+.fc-event.kind-типовой-расчет{ border-color: color-mix(in srgb, var(--typ), white 25%); }
+.fc-event.kind-тест{ border-color: color-mix(in srgb, var(--test), white 25%); }
+
+/* ==== WEEK / DAY улучшения ==== */
+.fc .fc-timegrid-axis{
+  background: color-mix(in srgb, var(--card-2), black 4%);
+  color: var(--muted);
+  border-right: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.fc .fc-timegrid-slot-label-cushion{ padding: 2px 6px; }
+
+/* Линии сетки */
+.fc .fc-timegrid-slot{ height: 2.0em; border-color: color-mix(in srgb, var(--line), transparent 35%) !important; }
+.fc .fc-timegrid-slot-minor{ border-top-color: color-mix(in srgb, var(--line), transparent 55%) !important; }
+
+/* Лёгкая «зебра» колонок */
+:root{
+  --gridA: color-mix(in srgb, var(--card), black 2%);
+  --gridB: color-mix(in srgb, var(--card), black 6%);
+}
+.fc .fc-timegrid .fc-timegrid-col{ background: var(--gridA); }
+.fc .fc-timegrid .fc-timegrid-col:nth-child(even){ background: var(--gridB); }
+
+/* Выходные и Сегодня */
+.fc .fc-day-sat .fc-timegrid-col-frame,
+.fc .fc-day-sun .fc-timegrid-col-frame{ background: color-mix(in srgb, var(--gridB), black 4%); }
+.fc .fc-timegrid-col.fc-day-today .fc-timegrid-col-frame{ background: color-mix(in srgb, var(--today), transparent 0%); }
+
+/* Линия «сейчас» */
+.fc .fc-timegrid-now-indicator-line{
+  border-color: var(--accent); border-width: 2px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent), transparent 70%);
+}
+.fc .fc-timegrid-now-indicator-arrow{ border-color: var(--accent); }
+
+/* Короткие события читаемы */
+.fc .fc-timegrid-event, .fc .fc-v-event{ min-height: 22px; }
+.fc .fc-timegrid-event .fc-event-main{ display:flex; align-items:center; }
+
+/* Список */
+.fc-list, .fc-list-sticky .fc-list{ background: transparent; color: var(--text); }
+.fc .fc-list-day-cushion{ background: var(--card-2); color: var(--muted); }
+.fc .fc-list-event:hover td{ background: var(--card); }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('calendar');
+
+  const cal = new FullCalendar.Calendar(el, {
+    initialView: 'dayGridMonth',
+    locale: 'ru',
+    firstDay: 1,
+    timeZone: 'local',
+    height: 'auto',
+    expandRows: true,
+    dayMaxEventRows: true,
+    nowIndicator: true,
+    nextDayThreshold: '00:00',
+    forceEventDuration: true,
+    displayEventEnd: false,
+
+    /* WEEK/DAY — видим 23:55 без хаков */
+    slotDuration: '00:30',
+    slotLabelInterval: '01:00',
+    slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+    dayHeaderFormat: { weekday: 'short', day: '2-digit', month: '2-digit' },
+    slotMinTime: '06:00:00',
+    slotMaxTime: '24:30:00',
+    scrollTime:  '08:00:00',
+
+    buttonText: {
+      today: 'сегодня',
+      month: 'месяц',
+      week:  'неделя',
+      day:   'день',
+      list:  'список',
+    },
+
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+    },
+
+    events: '/events',
+
+    /* Красивый кликабельный тултип с Tippy.js */
+    eventDidMount: (info) => {
+      const p = info.event.extendedProps || {};
+
+      // формат для строки «когда»
+      const fmt = (d) => d ? d.toLocaleString([], {hour:'2-digit', minute:'2-digit'}) : '';
+      const when = info.event.allDay
+        ? (new Date(info.event.start)).toLocaleDateString('ru-RU')
+        : `${fmt(info.event.start)}${info.event.end ? ' – ' + fmt(info.event.end) : ''}`;
+
+      // контент тултипа (HTML)
+      const parts = [];
+      if (p.subject) parts.push(`<div><b>Предмет:</b> ${p.subject}</div>`);
+      if (p.kind) parts.push(`<div><b>Тип:</b> ${p.kind}</div>`);
+      parts.push(`<div><b>Срок:</b> ${when}</div>`);
+      if (p.link) {
+        const safe = String(p.link).replace(/"/g, '&quot;');
+        parts.push(`<div style="margin-top:6px"><a href="${safe}" target="_blank" rel="noopener noreferrer">Открыть ссылку ↗</a></div>`);
+      }
+
+      const content = `
+        <div style="max-width:260px">
+          <div style="font-weight:600; margin-bottom:4px">${p.rawTitle || info.event.title}</div>
+          ${parts.join('')}
+        </div>
+      `;
+
+      tippy(info.el, {
+        content,
+        allowHTML: true,
+        theme: 'light',
+        placement: 'top',
+        interactive: true,
+        delay: [100, 0],
+      });
+
+      // Нативный title как «фоллбек» (если Tippy не загрузится)
+      info.el.title = `${p.rawTitle || info.event.title}\n${when}${p.subject ? '\nПредмет: ' + p.subject : ''}${p.kind ? '\nТип: ' + p.kind : ''}${p.link ? '\nСсылка: ' + p.link : ''}`;
+    },
+
+    /* Открываем ссылку события в новой вкладке, если она есть (FullCalendar сам откроет, но в том же окне) */
+    eventClick: (info) => {
+      const p = info.event.extendedProps || {};
+      if (info.event.url || p.link) {
+        info.jsEvent.preventDefault();
+        const target = info.event.url || p.link;
+        window.open(target, '_blank', 'noopener');
+      }
+    },
+  });
+
+  cal.render();
+});
+</script>
+{% endblock %}

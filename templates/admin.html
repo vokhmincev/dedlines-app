@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Админ-панель{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-6">
+  <h1 class="text-2xl font-bold mb-4">Админ-панель</h1>
+
+  <p class="mb-4 text-gray-600">
+    Добро пожаловать, администратор! 👑
+  </p>
+
+  <div class="space-y-2">
+    <a href="{{ url_for('admin_users') }}" class="block px-4 py-2 rounded bg-gray-900 text-white hover:bg-black transition">
+      Управление пользователями
+    </a>
+    <a href="{{ url_for('calendar_page') }}" class="block px-4 py-2 rounded bg-gray-100 hover:bg-gray-200 transition">
+      Перейти к календарю
+    </a>
+    <a href="{{ url_for('admin_deadlines_list') }}"
+   class="block px-4 py-2 rounded border hover:bg-gray-50">Управление дедлайнами</a>
+  </div>
+</div>
+{% endblock %}

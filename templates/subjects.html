@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Баллы по предметам{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* Карточка раздела */
+  .panel {
+    padding: 24px;
+  }
+
+  /* Карточки предметов: тонкий стеклянный стиль + лёгкий неоновый контур при ок */
+  .score-card{
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--line), white 10%);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 2%), var(--card-2));
+    box-shadow: 0 8px 24px rgba(0,0,0,.45);
+    padding: 14px;
+    transition: box-shadow .18s ease, border-color .18s ease, transform .12s ease;
+  }
+  .score-card.ok{
+    border-color: color-mix(in srgb, var(--test), transparent 70%);
+    box-shadow:
+      0 8px 24px rgba(0,0,0,.45),
+      0 0 42px color-mix(in srgb, var(--test), transparent 88%);
+  }
+  .score-card.err{
+    border-color: color-mix(in srgb, var(--ctrl), transparent 70%);
+    box-shadow:
+      0 8px 24px rgba(0,0,0,.45),
+      0 0 36px color-mix(in srgb, var(--ctrl), transparent 90%);
+  }
+  .score-card:hover{ transform: translateY(-2px); }
+
+  /* Статус и мини-бейджи */
+  .status { color: var(--muted); }
+  .badge-soft{
+    display:inline-flex; align-items:center; gap:.35rem;
+    padding:.2rem .5rem; border-radius:9999px;
+    border:1px solid color-mix(in srgb, var(--line), white 10%);
+    background: color-mix(in srgb, var(--card), white 3%);
+    font-size: .75rem; color: var(--text);
+  }
+  .badge-ok  { border-color: color-mix(in srgb, var(--test), transparent 70%); }
+  .badge-err { border-color: color-mix(in srgb, var(--ctrl), transparent 75%); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card-dark elev-1 relief panel">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-bold">Баллы по предметам</h1>
+      <p class="status text-sm mt-1">
+        Фамилия: <span class="font-medium" style="color:var(--text)">{{ current_user.surname }}</span>
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="refreshBtn" class="btn-dark btn-accent">
+        Обновить
+      </button>
+    </div>
+  </div>
+
+  <div id="status" class="status text-sm mb-3">Загрузка…</div>
+
+  <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+async function loadScores() {
+  const status = document.getElementById('status');
+  const cards = document.getElementById('cards');
+
+  status.textContent = 'Загрузка…';
+  try {
+    const resp = await fetch('/api/scores', { cache: 'no-store' });
+    const data = await resp.json();
+    const ts = new Date(data.ts);
+    status.textContent = 'Обновлено: ' + ts.toLocaleString();
+
+    cards.innerHTML = '';
+
+    data.items.forEach(it => {
+      const ok = it.ok && (it.score !== null);
+
+      const card = document.createElement('div');
+      card.className = 'score-card ' + (ok ? 'ok' : 'err');
+
+      const header = document.createElement('div');
+      header.className = 'flex items-start justify-between mb-1';
+
+      const title = document.createElement('div');
+      title.className = 'font-semibold';
+      title.textContent = it.name;
+
+      const tag = document.createElement('span');
+    //   tag.className = 'badge-soft ' + (ok ? 'badge-ok' : 'badge-err');
+    //   tag.textContent = ok ? '' : 'Нет данных';
+
+      header.appendChild(title);
+      header.appendChild(tag);
+      card.appendChild(header);
+
+      const val = document.createElement('div');
+      val.className = 'text-lg';
+      val.textContent = ok ? String(it.score) : 'По вашей фамилии не найдено';
+      card.appendChild(val);
+
+      cards.appendChild(card);
+    });
+
+  } catch (e) {
+    status.textContent = 'Ошибка загрузки: ' + e;
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadScores);
+setInterval(loadScores, 30000);
+document.addEventListener('DOMContentLoaded', loadScores);
+</script>
+{% endblock %}

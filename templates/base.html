@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru" data-theme="dark" class="ultra">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>{% block title %}DeadLines{% endblock %}</title>
+
+  <!-- Шрифты -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Основной CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <!-- Tailwind только как утилиты -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: ['class','attribute'],
+      theme: { extend:{} }
+    }
+  </script>
+
+  {% block head_extra %}{% endblock %}
+</head>
+
+<body>
+
+<!-- ===== NAVBAR ===== -->
+<div class="nav">
+  <div class="container nav-row">
+
+    <div class="brand">DeadLines</div>
+    <a href="{{ url_for('home') }}">Начальная</a>
+
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('calendar_page') }}">Календарь</a>
+
+
+      <a href="{{ url_for('subjects_page') }}">Баллы</a>
+
+      {% if current_user.is_admin %}
+        <a href="{{ url_for('admin_deadlines_list') }}">Админ</a>
+      {% endif %}
+    {% endif %}
+
+    <div class="spacer"></div>
+
+    {% if current_user.is_authenticated %}
+      <span class="badge">Привет, {{ current_user.username }}</span>
+      <a class="btn" href="{{ url_for('logout') }}">Выйти</a>
+    {% else %}
+      <a class="btn" href="{{ url_for('login') }}">Войти</a>
+    {% endif %}
+
+    <!-- Раньше были переключатели темы/ultra — убрали, ULTRA по умолчанию -->
+  </div>
+</div>
+
+<!-- ===== CONTENT ===== -->
+<div class="container" style="padding-top:18px;">
+  {% block content %}{% endblock %}
+</div>
+
+{% block body_extra %}{% endblock %}
+
+<!-- Сохранение темы больше не нужно (ULTRA дефолт) -->
+</body>
+</html>
