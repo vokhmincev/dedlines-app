@@ -16,7 +16,6 @@
         </p>
       </div>
 
-      <!-- Большие «сочные» кнопки действий -->
       <div class="hidden md:flex items-center gap-3">
         <a href="{{ url_for('calendar_page') }}" class="btn-dark btn-accent">
           📅 Открыть календарь
@@ -24,64 +23,67 @@
         <a href="{{ url_for('subjects_page') }}" class="btn-dark">
           📊 Баллы по предметам
         </a>
-        {# Никакого «➕ Добавить дедлайн» сверху — он есть ниже #}
       </div>
     </div>
   </div>
 
-  <!-- Ближайшие дедлайны (10 дней) -->
+  <!-- Ближайшие дедлайны -->
   <div class="card-dark elev-1 relief" style="padding:24px;">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold">Ближайшие дедлайны (10 дней)</h2>
       {% if current_user.is_authenticated and current_user.is_admin %}
-      <a href="{{ url_for('admin_add_deadline') }}" class="btn-dark btn-accent">➕ Добавить</a>
+        <a href="{{ url_for('admin_add_deadline') }}" class="btn-dark btn-accent">➕ Добавить</a>
       {% endif %}
     </div>
 
     {% if upcoming %}
       <ul class="divide-y" style="--tw-divide-color: var(--line);">
-        {% for d in upcoming %}
-  <li class="py-3 flex items-center justify-between">
-    <div class="min-w-0">
-      <div class="font-medium truncate">
-        {% if d.subject %}
-          <span style="color:var(--muted)">{{ d.subject }} • </span>
-        {% endif %}
-        {{ d.title }}
-      </div>
+      {% for d in upcoming %}
+        <li class="py-3 flex items-center justify-between">
+          <div class="min-w-0">
+            <div class="font-medium truncate">
+              {% if d.subject %}
+                <span style="color:var(--muted)">{{ d.subject }} • </span>
+              {% endif %}
+              {{ d.title }}
+            </div>
 
-      <div class="text-sm flex items-center gap-2" style="color:var(--muted)">
-        <span>
-          {{ d.due_at.strftime('%d.%m.%Y') }}{% if not d.all_day %}, {{ d.due_at.strftime('%H:%M') }}{% endif %}
-        </span>
+            <div class="text-sm flex items-center gap-2" style="color:var(--muted)">
+              <span>
+                {{ d.due_at.strftime('%d.%m.%Y') }}{% if not d.all_day %}, {{ d.due_at.strftime('%H:%M') }}{% endif %}
+              </span>
 
-        {# ---- Чип типа дедлайна (без тернарников) ---- #}
-        {% if d.kind %}
-          {% set k = (d.kind or '')|lower %}
-          {% if 'лаб' in k %}
-            {% set chip = 'lab' %}
-          {% elif 'дз' in k %}
-            {% set chip = 'hw' %}
-          {% elif 'контр' in k %}
-            {% set chip = 'ctrl' %}
-          {% elif 'типов' in k or 'тр' in k %}
-            {% set chip = 'typ' %}
-          {% elif 'коллок' in k %}
-            {% set chip = 'kol' %}
-          {% else %}
-            {% set chip = 'test' %}
-          {% endif %}
-          <span class="chip chip--{{ chip }}">{{ d.kind }}</span>
-        {% endif %}
-        {# ------------------------------------------- #}
-      </div>
-    </div>
+              {% if d.kind %}
+                {% set k = (d.kind or '')|lower %}
+                {% if 'лаб' in k %}
+                  {% set chip = 'lab' %}
+                {% elif 'дз' in k %}
+                  {% set chip = 'hw' %}
+                {% elif 'контр' in k %}
+                  {% set chip = 'ctrl' %}
+                {% elif 'типов' in k or 'тр' in k %}
+                  {% set chip = 'typ' %}
+                {% elif 'коллок' in k %}
+                  {% set chip = 'kol' %}
+                {% else %}
+                  {% set chip = 'test' %}
+                {% endif %}
+                <span class="chip chip--{{ chip }}">{{ d.kind }}</span>
+              {% endif %}
+            </div>
+          </div>
 
-    {% if d.link %}
-      <a href="{{ d.link }}" target="_blank" rel="noopener" class="btn-dark">↗</a>
-    {% endif %}
-  </li>
-{% endfor %}
+          <!-- Иконки действий -->
+          <div class="flex items-center gap-2">
+            {% if d.link %}
+              <a href="{{ d.link }}" target="_blank" rel="noopener" class="btn-dark" title="Открыть ссылку">↗</a>
+            {% endif %}
+            {% if d.file_path %}
+              <a href="{{ url_for('download_attachment', fname=d.file_path) }}" class="btn-dark" title="Скачать файл">📎</a>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
       </ul>
     {% else %}
       <p style="color:var(--muted)">На ближайшие 10 дней нет дедлайнов 🎉</p>

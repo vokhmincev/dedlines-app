@@ -8,7 +8,7 @@
     <a href="{{ url_for('admin_add_deadline') }}"
        class="px-3 py-2 rounded bg-gray-900 text-white hover:bg-black">+ Новый дедлайн</a>
   </div>
-
+ 
   {% if items %}
   <table class="w-full text-sm">
     <thead>
@@ -54,6 +54,11 @@
   </table>
   {% else %}
   <p class="text-gray-600">Пока нет дедлайнов.</p>
+  
   {% endif %}
+  {% if d.file_path %}
+  <a class="btn-dark" href="{{ url_for('download_attachment', fname=d.file_path) }}" title="Скачать вложение">📎</a>
+  {% endif %}
+
 </div>
 {% endblock %}

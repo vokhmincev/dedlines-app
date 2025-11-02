@@ -10,6 +10,12 @@ import unicodedata
 from datetime import datetime, timedelta
 from functools import wraps
 from urllib.parse import urlparse
+import uuid
+import mimetypes
+from pathlib import Path
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+
 
 import requests
 from flask import (
@@ -56,6 +62,24 @@ login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.login_message = "Войдите, чтобы продолжить."
 login_manager.init_app(app)
+
+# ===== Uploads =====
+# Храним файлы в персистентной папке (/data на Railway), локально — ./uploads
+if os.path.exists("/data"):
+    UPLOAD_DIR = Path("/data/uploads")
+else:
+    UPLOAD_DIR = Path(BASE_DIR) / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Ограничение размера (16 МБ)
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+
+ALLOWED_EXTS = {
+    "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx",
+    "png", "jpg", "jpeg", "txt", "zip", "rar", "7z"
+}
+def _allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTS
 
 # ====== Глобальный гейт для гостей ======
 PUBLIC_ENDPOINTS = {
@@ -125,11 +149,44 @@ class Deadline(db.Model):
     link = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # --- attachment ---
+    file_path = db.Column(db.String(500), nullable=True)  # относительный путь/имя на диске
+    file_name = db.Column(db.String(255), nullable=True)  # «человеческое» имя
+    file_size = db.Column(db.Integer, nullable=True)
+    file_mime = db.Column(db.String(120), nullable=True)
+
+
 @login_manager.user_loader
 def load_user(user_id: str):
     return User.query.get(int(user_id))
 
 # ======================= Helpers =======================
+def _save_upload(fs) -> tuple[str, str, int, str] | None:
+    """
+    Сохраняет FileStorage fs в UPLOAD_DIR с уникальным именем.
+    Возвращает (stored_name, original_name, size, mime) или None.
+    """
+    if not fs or fs.filename == "":
+        return None
+    if not _allowed_file(fs.filename):
+        return None
+    orig = secure_filename(fs.filename)
+    ext = orig.rsplit(".", 1)[1].lower()
+    stored = f"{uuid.uuid4().hex}.{ext}"
+    target = UPLOAD_DIR / stored
+    fs.save(target)
+    size = target.stat().st_size
+    mime = mimetypes.guess_type(orig)[0] or "application/octet-stream"
+    return (stored, orig, size, mime)
+
+def _remove_upload(stored_name: str | None):
+    if not stored_name:
+        return
+    try:
+        (UPLOAD_DIR / stored_name).unlink(missing_ok=True)
+    except Exception:
+        pass
+
 def admin_required(view):
     @wraps(view)
     @login_required
@@ -455,9 +512,23 @@ def admin_add_deadline():
         else:
             due_at = datetime.strptime(f"{date} {time_}", "%Y-%m-%d %H:%M")
 
+        # Файл
+        fs = request.files.get("attachment")
+        stored = None
+        orig = None
+        size = None
+        mime = None
+        if fs and fs.filename:
+            saved = _save_upload(fs)
+            if saved:
+                stored, orig, size, mime = saved
+            else:
+                flash("Недопустимый тип файла", "error")
+
         d = Deadline(
             title=title, due_at=due_at, all_day=all_day,
-            subject=subject, kind=kind, link=link
+            subject=subject, kind=kind, link=link,
+            file_path=stored, file_name=orig, file_size=size, file_mime=mime
         )
         db.session.add(d)
         db.session.commit()
@@ -495,6 +566,24 @@ def admin_deadline_edit(deadline_id):
             due_at = datetime.strptime(date, "%Y-%m-%d")
         else:
             due_at = datetime.strptime(f"{date} {time_}", "%Y-%m-%d %H:%M")
+
+        # Удаление старого файла (если отмечено)
+        if request.form.get("remove_attachment") == "1":
+            _remove_upload(d.file_path)
+            d.file_path = d.file_name = d.file_mime = None
+            d.file_size = None
+
+        # Загрузка нового файла (пришёл — значит заменить)
+        fs = request.files.get("attachment")
+        if fs and fs.filename:
+            saved = _save_upload(fs)
+            if saved:
+                # удалить старый
+                _remove_upload(d.file_path)
+                stored, orig, size, mime = saved
+                d.file_path, d.file_name, d.file_size, d.file_mime = stored, orig, size, mime
+            else:
+                flash("Недопустимый тип файла", "error")
 
         d.title = title
         d.due_at = due_at
@@ -571,6 +660,24 @@ def login():
         flash("Неверный логин или пароль", "error")
     return render_template("auth/login.html")
 
+@app.route("/attach/<path:fname>")
+def download_attachment(fname):
+    return send_from_directory("uploads", fname, as_attachment=True)
+
+@app.get("/uploads/<path:fname>")
+@login_required
+def download_attachment(fname):
+    # Безопасная выдача только тех файлов, которые реально привязаны к дедлайнам
+    dl = Deadline.query.filter_by(file_path=fname).first()
+    if not dl:
+        abort(404)
+    return send_from_directory(
+        directory=str(UPLOAD_DIR),
+        path=fname,
+        as_attachment=True,
+        download_name=dl.file_name or fname
+    )
+
 @app.get("/logout")
 @login_required
 def logout():
@@ -635,6 +742,19 @@ with app.app_context():
         db.session.commit()
     if "link" not in dcols:
         db.session.execute(text("ALTER TABLE deadline ADD COLUMN link VARCHAR(500)"))
+        db.session.commit()
+    # Новые поля для вложений:
+    if "file_path" not in dcols:
+        db.session.execute(text("ALTER TABLE deadline ADD COLUMN file_path VARCHAR(500)"))
+        db.session.commit()
+    if "file_name" not in dcols:
+        db.session.execute(text("ALTER TABLE deadline ADD COLUMN file_name VARCHAR(255)"))
+        db.session.commit()
+    if "file_size" not in dcols:
+        db.session.execute(text("ALTER TABLE deadline ADD COLUMN file_size INTEGER"))
+        db.session.commit()
+    if "file_mime" not in dcols:
+        db.session.execute(text("ALTER TABLE deadline ADD COLUMN file_mime VARCHAR(120)"))
         db.session.commit()
 
 # ======================= Entry =======================
