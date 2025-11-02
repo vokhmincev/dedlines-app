@@ -31,14 +31,21 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-change-me")
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def _compute_db_uri() -> str:
-    env_url = os.getenv("DATABASE_URL")
-    if env_url:
-        # Railway/GH иногда отдают postgres:// — SQLAlchemy хочет postgresql://
-        return env_url.replace("postgres://", "postgresql://")
-    # На Railway есть персистентный /data — удобно класть sqlite туда
+    """Вернёт PostgreSQL URI из env, иначе — SQLite (Railway Volume / локально)."""
+    raw = os.getenv("DATABASE_URL")
+    if raw:
+        # postgres:// → postgresql+psycopg2://
+        if raw.startswith("postgres://"):
+            raw = raw.replace("postgres://", "postgresql+psycopg2://", 1)
+        # Добавим sslmode=require, если его нет (часто требуется на платформах)
+        if "sslmode=" not in raw:
+            sep = "&" if "?" in raw else "?"
+            raw = f"{raw}{sep}sslmode=require"
+        return raw
+
+    # Fallback: SQLite (на Railway есть /data — это персистентный volume)
     if os.path.exists("/data"):
         return "sqlite:////data/site.db"
-    # Локально — файл в папке проекта
     return "sqlite:///" + os.path.join(BASE_DIR, "site.db")
 
 app.config["SQLALCHEMY_DATABASE_URI"] = _compute_db_uri()
@@ -93,7 +100,6 @@ SHEETS = [
 ]
 DEADLINE_TYPES = ["кр", "лаба", "дз", "тр", "тест", "коллок"]
 
-
 # ======================= Models =======================
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -109,7 +115,6 @@ class User(db.Model, UserMixin):
     def check_password(self, pwd: str) -> bool:
         return check_password_hash(self.password_hash, pwd)
 
-
 class Deadline(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -119,7 +124,6 @@ class Deadline(db.Model):
     kind = db.Column(db.String(30), nullable=False, default="дз")
     link = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 @login_manager.user_loader
 def load_user(user_id: str):
@@ -538,16 +542,14 @@ def register():
             flash("Такой логин уже занят", "error")
             return redirect(url_for("register"))
 
-        # ... внутри def register():
         user = User(username=username, surname=surname)
         user.set_password(password)
         db.session.add(user)
-        db.session.flush()  # дать user.id без полного commit
+        db.session.flush()  # получить user.id без полного commit
 
-# если админов ещё нет — сделать этого пользователя админом
+        # первый зарегистрированный = админ
         if User.query.filter_by(is_admin=True).count() == 0:
             user.is_admin = True
-
 
         db.session.commit()
         flash("Аккаунт создан. Войдите.", "success")
