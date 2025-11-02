@@ -528,9 +528,17 @@ def register():
             flash("Такой логин уже занят", "error")
             return redirect(url_for("register"))
 
+        # ... внутри def register():
         user = User(username=username, surname=surname)
         user.set_password(password)
         db.session.add(user)
+        db.session.flush()  # дать user.id без полного commit
+
+# если админов ещё нет — сделать этого пользователя админом
+        if User.query.filter_by(is_admin=True).count() == 0:
+            user.is_admin = True
+
+
         db.session.commit()
         flash("Аккаунт создан. Войдите.", "success")
         return redirect(url_for("login"))
