@@ -134,6 +134,9 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    tg_id = db.Column(db.BigInteger, nullable=True, index=True)
+    tg_username = db.Column(db.String(255), nullable=True)
+
 
     def set_password(self, pwd: str) -> None:
         self.password_hash = generate_password_hash(pwd)
@@ -534,6 +537,22 @@ def admin_add_deadline():
         )
         db.session.add(d)
         db.session.commit()
+        # --- Broadcast в Telegram (если токен задан и есть привязанные юзеры) ---
+        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        if token:
+            try:
+                text_msg = f"🆕 Новый дедлайн: { _format_deadline_title(d) }\n" \
+                           f"Когда: { d.due_at.strftime('%d.%m.%Y %H:%M') if not d.all_day else d.due_at.strftime('%d.%m.%Y') }"
+        # соберём tg_id всех привязанных
+                chat_ids = [u.tg_id for u in User.query.filter(User.tg_id.isnot(None)).all()]
+                for cid in chat_ids:
+                    requests.post(
+                        f"https://api.telegram.org/bot{token}/sendMessage",
+                        json={"chat_id": cid, "text": text_msg}
+                    )
+            except Exception as e:
+                app.logger.warning(f"TG broadcast failed: {e}")
+    
         flash("Дедлайн добавлен ✅", "success")
         return redirect(url_for("admin_deadlines_list"))
 
@@ -729,34 +748,71 @@ with app.app_context():
     db.create_all()
     insp = inspect(db.engine)
 
-    cols = {c["name"] for c in insp.get_columns("user")}
-    if "surname" not in cols:
-        db.session.execute(text("ALTER TABLE user ADD COLUMN surname VARCHAR(120) NOT NULL DEFAULT ''"))
-        db.session.commit()
-    if "is_admin" not in cols:
-        db.session.execute(text("ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
+    # ---- user ----
+    ucols = {c["name"] for c in insp.get_columns("user")}
+    if "surname" not in ucols:
+        db.session.execute(text(
+            "ALTER TABLE user ADD COLUMN surname VARCHAR(120) NOT NULL DEFAULT ''"
+        ))
         db.session.commit()
 
+    if "is_admin" not in ucols:
+        db.session.execute(text(
+            "ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
+        ))
+        db.session.commit()
+
+    if "tg_id" not in ucols:
+        db.session.execute(text(
+            "ALTER TABLE user ADD COLUMN tg_id BIGINT"
+        ))
+        db.session.commit()
+
+    if "tg_username" not in ucols:
+        db.session.execute(text(
+            "ALTER TABLE user ADD COLUMN tg_username VARCHAR(255)"
+        ))
+        db.session.commit()
+
+    # ---- deadline ----
     dcols = {c["name"] for c in insp.get_columns("deadline")}
     if "kind" not in dcols:
-        db.session.execute(text("ALTER TABLE deadline ADD COLUMN kind VARCHAR(30) NOT NULL DEFAULT 'дз'"))
+        db.session.execute(text(
+            "ALTER TABLE deadline ADD COLUMN kind VARCHAR(30) NOT NULL DEFAULT 'дз'"
+        ))
         db.session.commit()
+
     if "link" not in dcols:
-        db.session.execute(text("ALTER TABLE deadline ADD COLUMN link VARCHAR(500)"))
+        db.session.execute(text(
+            "ALTER TABLE deadline ADD COLUMN link VARCHAR(500)"
+        ))
         db.session.commit()
-    # Новые поля для вложений:
+
     if "file_path" not in dcols:
-        db.session.execute(text("ALTER TABLE deadline ADD COLUMN file_path VARCHAR(500)"))
+        db.session.execute(text(
+            "ALTER TABLE deadline ADD COLUMN file_path VARCHAR(500)"
+        ))
         db.session.commit()
+
     if "file_name" not in dcols:
-        db.session.execute(text("ALTER TABLE deadline ADD COLUMN file_name VARCHAR(255)"))
+        db.session.execute(text(
+            "ALTER TABLE deadline ADD COLUMN file_name VARCHAR(255)"
+        ))
         db.session.commit()
+
     if "file_size" not in dcols:
-        db.session.execute(text("ALTER TABLE deadline ADD COLUMN file_size INTEGER"))
+        db.session.execute(text(
+            "ALTER TABLE deadline ADD COLUMN file_size INTEGER"
+        ))
         db.session.commit()
+
     if "file_mime" not in dcols:
-        db.session.execute(text("ALTER TABLE deadline ADD COLUMN file_mime VARCHAR(120)"))
+        db.session.execute(text(
+            "ALTER TABLE deadline ADD COLUMN file_mime VARCHAR(120)"
+        ))
         db.session.commit()
+
+
 
 # ======================= Entry =======================
 if __name__ == "__main__":

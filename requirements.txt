@@ -1,9 +1,14 @@
-Flask
-Flask-Login
-Flask-SQLAlchemy
-SQLAlchemy
-requests
-gunicorn
+Flask==3.0.3
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.32
+requests==2.32.3
+gunicorn==23.0.0
+
+# драйвер Postgres для SQLAlchemy и бота
 psycopg2-binary==2.9.9
 
+# для телеграм-бота (long polling) и планировщика
+python-telegram-bot==20.7
 
+APScheduler==3.10.4
