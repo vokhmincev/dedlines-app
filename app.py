@@ -660,14 +660,11 @@ def login():
         flash("Неверный логин или пароль", "error")
     return render_template("auth/login.html")
 
-@app.route("/attach/<path:fname>")
-def download_attachment(fname):
-    return send_from_directory("uploads", fname, as_attachment=True)
-
+# ---- Скачивание вложений (единый маршрут) ----
 @app.get("/uploads/<path:fname>")
 @login_required
 def download_attachment(fname):
-    # Безопасная выдача только тех файлов, которые реально привязаны к дедлайнам
+    # Раздаём только те файлы, что реально привязаны к дедлайнам
     dl = Deadline.query.filter_by(file_path=fname).first()
     if not dl:
         abort(404)
@@ -675,8 +672,10 @@ def download_attachment(fname):
         directory=str(UPLOAD_DIR),
         path=fname,
         as_attachment=True,
-        download_name=dl.file_name or fname
+        download_name=dl.file_name or fname,
+        mimetype=dl.file_mime or "application/octet-stream",
     )
+
 
 @app.get("/logout")
 @login_required
