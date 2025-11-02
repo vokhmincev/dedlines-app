@@ -41,35 +41,47 @@
     {% if upcoming %}
       <ul class="divide-y" style="--tw-divide-color: var(--line);">
         {% for d in upcoming %}
-          <li class="py-3 flex items-center justify-between">
-            <div class="min-w-0">
-              <div class="font-medium truncate">
-                {% if d.subject %}
-                  <span style="color:var(--muted)">{{ d.subject }} • </span>
-                {% if d.kind %}
-                  {# карта "человекочитаемый тип" -> "суффикс css-класса" #}
-                  {% set kind_map = {
-                    'лаба': 'lab',
-                    'дз':            'hw',
-                    'кр':   'ctrl',
-                    'тр':'typ',
-                    'тест':          'test',
-                    'коллок':        'col'     # ← НОВОЕ
-                  } %}
-                {% set k = (d.kind or '')|lower %}
-                <span class="chip chip--{{ kind_map.get(k, 'other') }}">
-                  {{ d.kind }}
-                </span>
-              {% endif %}
+  <li class="py-3 flex items-center justify-between">
+    <div class="min-w-0">
+      <div class="font-medium truncate">
+        {% if d.subject %}
+          <span style="color:var(--muted)">{{ d.subject }} • </span>
+        {% endif %}
+        {{ d.title }}
+      </div>
 
-              </div>
-            </div>
+      <div class="text-sm flex items-center gap-2" style="color:var(--muted)">
+        <span>
+          {{ d.due_at.strftime('%d.%m.%Y') }}{% if not d.all_day %}, {{ d.due_at.strftime('%H:%M') }}{% endif %}
+        </span>
 
-            {% if d.link %}
-            <a href="{{ d.link }}" target="_blank" rel="noopener" class="btn-dark">↗</a>
-            {% endif %}
-          </li>
-        {% endfor %}
+        {# ---- Чип типа дедлайна (без тернарников) ---- #}
+        {% if d.kind %}
+          {% set k = (d.kind or '')|lower %}
+          {% if 'лаб' in k %}
+            {% set chip = 'lab' %}
+          {% elif 'дз' in k %}
+            {% set chip = 'hw' %}
+          {% elif 'контр' in k %}
+            {% set chip = 'ctrl' %}
+          {% elif 'типов' in k or 'тр' in k %}
+            {% set chip = 'typ' %}
+          {% elif 'коллок' in k %}
+            {% set chip = 'kol' %}
+          {% else %}
+            {% set chip = 'test' %}
+          {% endif %}
+          <span class="chip chip--{{ chip }}">{{ d.kind }}</span>
+        {% endif %}
+        {# ------------------------------------------- #}
+      </div>
+    </div>
+
+    {% if d.link %}
+      <a href="{{ d.link }}" target="_blank" rel="noopener" class="btn-dark">↗</a>
+    {% endif %}
+  </li>
+{% endfor %}
       </ul>
     {% else %}
       <p style="color:var(--muted)">На ближайшие 10 дней нет дедлайнов 🎉</p>

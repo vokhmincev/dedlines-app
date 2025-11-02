@@ -193,8 +193,8 @@ html:not([data-theme="dark"]){
 .chip--typ{  background: #2f2731; color:#e6c8ff; border-color:#463a4d; }
 .chip--test{ background: #1f2b2b; color:#8fe0d6; border-color:#2d4141; }
 
-/* НОВОЕ: коллоквиум */
-.chip--col{  background: #2f2617; color:#f5c46b; border-color:#4a3a1f; }
+/* новый */
+.chip--kol{background:#12161b;color:#a7e0ff;border-color:#23485e}
 
 /* запасной вариант */
 .chip--other{ background:#23262b; color:#c9ced6; border-color:#343a45; }
