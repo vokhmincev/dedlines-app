@@ -8,6 +8,7 @@ import math
 import unicodedata
 from datetime import datetime, timedelta
 from functools import wraps
+from urllib.parse import urlparse
 
 import requests
 from flask import (
@@ -21,18 +22,25 @@ from flask_login import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import inspect, text
-from urllib.parse import urlparse
 
-# --------------------------- App & DB config ---------------------------
+# ======================= App & DB config =======================
 app = Flask(__name__)
-DB_URL = os.getenv("DATABASE_URL")  # для Railway
-if DB_URL:
-    app.config["SQLALCHEMY_DATABASE_URI"] = DB_URL
-else:
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(BASE_DIR, "site.db")
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-change-me")
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(BASE_DIR, "site.db")
+
+def _compute_db_uri() -> str:
+    env_url = os.getenv("DATABASE_URL")
+    if env_url:
+        # Railway/GH иногда отдают postgres:// — SQLAlchemy хочет postgresql://
+        return env_url.replace("postgres://", "postgresql://")
+    # На Railway есть персистентный /data — удобно класть sqlite туда
+    if os.path.exists("/data"):
+        return "sqlite:////data/site.db"
+    # Локально — файл в папке проекта
+    return "sqlite:///" + os.path.join(BASE_DIR, "site.db")
+
+app.config["SQLALCHEMY_DATABASE_URI"] = _compute_db_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
@@ -52,23 +60,14 @@ PUBLIC_ENDPOINTS = {
 
 @app.before_request
 def force_auth_for_all():
-    # Авторизованных пропускаем
     if current_user.is_authenticated:
         return
-
-    # Разрешаем публичные эндпоинты и статику
     endpoint = (request.endpoint or "")
     if endpoint in PUBLIC_ENDPOINTS or endpoint.startswith("static"):
         return
-
-    # Всё остальное — на логин с возвратом
     return redirect(url_for("login", next=request.url))
 
-# --------------------------- Sheets config -----------------------------
-# Режимы:
-# - sum_until_total: суммируем все ЧИСЛА слева до колонки с заголовком «Итог/Total»
-# - prefer_total: берём значение из «Итог» (умный поиск правильной колонки)
-# - take_last_total: берём ПОСЛЕДНЕЕ числовое значение в строке
+# ======================= Sheets config =======================
 SHEETS = [
     {
         "name": "ИСРПО",
@@ -83,17 +82,17 @@ SHEETS = [
     {
         "name": "ДМ",
         "url": "https://docs.google.com/spreadsheets/d/1sT0BfUpBHX-MozJxqwempxtWfdShPHnFTgwDI1q_078/edit?gid=0#gid=0",
-        "take_last_total": True,  # правый Total
+        "take_last_total": True,
     },
     {
         "name": "ОП",
         "url": "https://docs.google.com/spreadsheets/d/1GTl2TBVT9YfGlgxQIdV7kKY6a2BRGWOhak8Hak2qGR4/edit?gid=1739698806#gid=1739698806",
-        "prefer_total": True,     # брать именно колонку «Итог» (не последнюю)
+        "prefer_total": True,
     },
 ]
 DEADLINE_TYPES = ["контрольная", "лабораторная", "дз", "типовой расчет", "тест"]
 
-# ------------------------------ Models --------------------------------
+# ======================= Models =======================
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
@@ -124,7 +123,7 @@ class Deadline(db.Model):
 def load_user(user_id: str):
     return User.query.get(int(user_id))
 
-# ---------------------------- Helpers ---------------------------------
+# ======================= Helpers =======================
 def admin_required(view):
     @wraps(view)
     @login_required
@@ -134,7 +133,6 @@ def admin_required(view):
         return view(*args, **kwargs)
     return wrapped
 
-# ---- Google Sheets helpers ----
 def gsheet_to_csv_url(edit_url: str) -> str:
     m = re.search(r"/spreadsheets/d/([^/]+)/", edit_url)
     if not m:
@@ -151,7 +149,6 @@ def fetch_csv_rows(csv_url: str) -> list[list[str]]:
     reader = csv.reader(io.StringIO(data))
     return [row for row in reader]
 
-# ---------- Normalization & parsing ----------
 def _norm(s: str) -> str:
     s = (s or "")
     s = unicodedata.normalize("NFKC", s)
@@ -174,7 +171,7 @@ def _safe_number(cell: str):
         return None
     if not math.isfinite(v):
         return None
-    if abs(v) >= 100000:  # отсечь явные ID/бред
+    if abs(v) >= 100000:
         return None
     return v
 
@@ -195,14 +192,6 @@ def _find_header_row(rows: list[list[str]]) -> int:
     return 0
 
 def _find_preferred_total_index(headers: list[str]) -> int | None:
-    """
-    Возвращает индекс «правильной» колонки Итог/Total.
-    Приоритет:
-      1) точное 'итог' / 'итог (...)' / 'total'
-      2) начинается с 'итог ' / 'total '
-      3) содержит 'итог' / 'total' (низкий приоритет, например 'total практика')
-    При равенстве берём более правую.
-    """
     if not headers:
         return None
     ranks: list[tuple[int,int]] = []
@@ -220,7 +209,7 @@ def _find_preferred_total_index(headers: list[str]) -> int | None:
         return None
     best = min(r for r, _ in ranks)
     candidates = [idx for r, idx in ranks if r == best]
-    return max(candidates)  # чаще «главный» итог правее
+    return max(candidates)
 
 def find_score_by_surname(
     rows: list[list[str]],
@@ -229,7 +218,6 @@ def find_score_by_surname(
     sum_until_total: bool = False,
     take_last_total: bool = False,
 ) -> dict | None:
-    """Возвращает {"sum": float, "values": [числа], "row": row} для найденной фамилии."""
     if not rows:
         return None
 
@@ -239,7 +227,6 @@ def find_score_by_surname(
     total_idx = _find_preferred_total_index(headers)
     stop_at = total_idx if total_idx is not None else (len(headers) if headers else 10**9)
 
-    # найти строку по фамилии (по всей строке)
     target = _norm_name(surname)
     row_idx = None
     for i, row in enumerate(rows[hdr_idx + 1:], start=hdr_idx + 1):
@@ -254,7 +241,6 @@ def find_score_by_surname(
 
     row = rows[row_idx]
 
-    # 1) режим: взять последний числовой элемент (правый Total)
     if take_last_total:
         for j in range(len(row) - 1, -1, -1):
             v = _safe_number(row[j])
@@ -262,7 +248,6 @@ def find_score_by_surname(
                 return {"sum": v, "values": [v], "row": row}
         return None
 
-    # helper: сумма всех чисел слева до «итог/total»
     def _sum_left_until_total() -> dict:
         end = min(stop_at, len(row))
         vals = []
@@ -272,27 +257,23 @@ def find_score_by_surname(
                 vals.append(v)
         return {"sum": round(sum(vals), 3), "values": vals, "row": row}
 
-    # 2) режим: взять значение под «Итог»
     if prefer_total and total_idx is not None and total_idx < len(row):
         v = _safe_number(row[total_idx])
         if v is not None:
             return {"sum": v, "values": [v], "row": row}
-        # если в «Итог» пусто — fallback на сумму слева
         return _sum_left_until_total()
 
-    # 3) режим: чистая сумма слева до «итог/total»
     if sum_until_total:
         return _sum_left_until_total()
 
-    # 4) по умолчанию — тоже сумма слева
     return _sum_left_until_total()
 
-# ------------------------------ Pages ---------------------------------
+# ======================= Pages =======================
 @app.route("/")
 @login_required
 def home():
     now = datetime.utcnow()
-    horizon = now + timedelta(days=10)  # 10 дней
+    horizon = now + timedelta(days=10)
     upcoming = (
         Deadline.query
         .filter(Deadline.due_at >= now, Deadline.due_at <= horizon)
@@ -300,7 +281,6 @@ def home():
         .all()
     )
 
-    # простое приветствие по времени суток (UTC; при желании можно сменить TZ)
     hour = now.hour
     if 5 <= hour < 12:
         greet = "Доброе утро"
@@ -311,11 +291,7 @@ def home():
     else:
         greet = "Доброй ночи"
 
-    # имя для приветствия
-    uname = None
-    if current_user.is_authenticated:
-        uname = current_user.surname or current_user.username
-
+    uname = current_user.surname or current_user.username
     return render_template("index.html", upcoming=upcoming, now=now, greet=greet, uname=uname)
 
 @app.get("/subjects")
@@ -385,7 +361,7 @@ def events_feed():
         })
     return jsonify(payload)
 
-# ------------------------------ Admin ---------------------------------
+# ======================= Admin =======================
 @app.get("/admin")
 @admin_required
 def admin_panel():
@@ -533,7 +509,7 @@ def admin_deadline_delete(deadline_id):
     flash("Дедлайн удалён 🗑️", "success")
     return redirect(url_for("admin_deadlines_list"))
 
-# ------------------------------ Auth ----------------------------------
+# ======================= Auth =======================
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -582,7 +558,7 @@ def logout():
     flash("Вы вышли из аккаунта", "success")
     return redirect(url_for("login"))
 
-# -------------------------- Scores API (live) --------------------------
+# ======================= API =======================
 @app.get("/api/scores")
 @login_required
 def api_scores():
@@ -611,16 +587,7 @@ def api_scores():
             results.append({"name": sheet["name"], "score": None, "ok": False, "error": str(e)})
     return jsonify({"surname": surname, "items": results, "ts": datetime.utcnow().isoformat(timespec="seconds")})
 
-# -------------------------- Dev helpers (debug) -----------------------
-@app.get("/_dev/users")
-def _dev_users():
-    if not app.debug:
-        abort(404)
-    users = User.query.order_by(User.id).all()
-    return "<br>".join(f"{u.id}: {u.username} {u.surname} (admin={u.is_admin})" for u in users) or "Нет пользователей"
-
-
-# ------------------------------ Errors --------------------------------
+# ======================= Errors =======================
 @app.errorhandler(403)
 def forbidden(e):
     return render_template("errors/403.html"), 403
@@ -629,12 +596,11 @@ def forbidden(e):
 def not_found(e):
     return render_template("errors/404.html"), 404
 
-# -------------------------- DB init / light migrations ----------------
+# ======================= DB init / light migrations =======================
 with app.app_context():
     db.create_all()
     insp = inspect(db.engine)
 
-    # user: surname / is_admin
     cols = {c["name"] for c in insp.get_columns("user")}
     if "surname" not in cols:
         db.session.execute(text("ALTER TABLE user ADD COLUMN surname VARCHAR(120) NOT NULL DEFAULT ''"))
@@ -643,7 +609,6 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
         db.session.commit()
 
-    # deadline: kind + link
     dcols = {c["name"] for c in insp.get_columns("deadline")}
     if "kind" not in dcols:
         db.session.execute(text("ALTER TABLE deadline ADD COLUMN kind VARCHAR(30) NOT NULL DEFAULT 'дз'"))
@@ -652,6 +617,6 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE deadline ADD COLUMN link VARCHAR(500)"))
         db.session.commit()
 
-# ------------------------------- Entry --------------------------------
+# ======================= Entry =======================
 if __name__ == "__main__":
     app.run(debug=True)
