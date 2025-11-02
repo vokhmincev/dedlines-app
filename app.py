@@ -37,22 +37,23 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-change-me")
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def _compute_db_uri() -> str:
-    """Вернёт PostgreSQL URI из env, иначе — SQLite (Railway Volume / локально)."""
     raw = os.getenv("DATABASE_URL")
     if raw:
-        # postgres:// → postgresql+psycopg2://
+        # postgres:// → postgresql+psycopg://
         if raw.startswith("postgres://"):
-            raw = raw.replace("postgres://", "postgresql+psycopg2://", 1)
-        # Добавим sslmode=require, если его нет (часто требуется на платформах)
+            raw = raw.replace("postgres://", "postgresql+psycopg://", 1)
+        elif raw.startswith("postgresql://") and "+psycopg" not in raw:
+            raw = raw.replace("postgresql://", "postgresql+psycopg://", 1)
+
         if "sslmode=" not in raw:
             sep = "&" if "?" in raw else "?"
             raw = f"{raw}{sep}sslmode=require"
         return raw
 
-    # Fallback: SQLite (на Railway есть /data — это персистентный volume)
     if os.path.exists("/data"):
         return "sqlite:////data/site.db"
     return "sqlite:///" + os.path.join(BASE_DIR, "site.db")
+
 
 app.config["SQLALCHEMY_DATABASE_URI"] = _compute_db_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
