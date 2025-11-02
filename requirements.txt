@@ -4,5 +4,6 @@ Flask-SQLAlchemy
 SQLAlchemy
 requests
 gunicorn
-psycopg[binary]==3.1.19
+psycopg2-binary==2.9.9
+
 

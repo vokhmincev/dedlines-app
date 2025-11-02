@@ -39,11 +39,11 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 def _compute_db_uri() -> str:
     raw = os.getenv("DATABASE_URL")
     if raw:
-        # postgres:// → postgresql+psycopg://
+        # postgres:// → postgresql+psycopg2://
         if raw.startswith("postgres://"):
-            raw = raw.replace("postgres://", "postgresql+psycopg://", 1)
-        elif raw.startswith("postgresql://") and "+psycopg" not in raw:
-            raw = raw.replace("postgresql://", "postgresql+psycopg://", 1)
+            raw = raw.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif raw.startswith("postgresql://") and "+psycopg2" not in raw:
+            raw = raw.replace("postgresql://", "postgresql+psycopg2://", 1)
 
         if "sslmode=" not in raw:
             sep = "&" if "?" in raw else "?"
@@ -53,6 +53,7 @@ def _compute_db_uri() -> str:
     if os.path.exists("/data"):
         return "sqlite:////data/site.db"
     return "sqlite:///" + os.path.join(BASE_DIR, "site.db")
+
 
 
 app.config["SQLALCHEMY_DATABASE_URI"] = _compute_db_uri()
