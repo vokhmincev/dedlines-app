@@ -748,69 +748,65 @@ with app.app_context():
     db.create_all()
     insp = inspect(db.engine)
 
-    # ---- user ----
+    # ---- USER ----
     ucols = {c["name"] for c in insp.get_columns("user")}
     if "surname" not in ucols:
         db.session.execute(text(
-            "ALTER TABLE user ADD COLUMN surname VARCHAR(120) NOT NULL DEFAULT ''"
+            'ALTER TABLE "user" ADD COLUMN surname VARCHAR(120) NOT NULL DEFAULT \'\''
         ))
         db.session.commit()
 
     if "is_admin" not in ucols:
         db.session.execute(text(
-            "ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
+            'ALTER TABLE "user" ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE'
         ))
         db.session.commit()
 
     if "tg_id" not in ucols:
         db.session.execute(text(
-            "ALTER TABLE user ADD COLUMN tg_id BIGINT"
+            'ALTER TABLE "user" ADD COLUMN tg_id BIGINT'
         ))
         db.session.commit()
 
     if "tg_username" not in ucols:
         db.session.execute(text(
-            "ALTER TABLE user ADD COLUMN tg_username VARCHAR(255)"
+            'ALTER TABLE "user" ADD COLUMN tg_username VARCHAR(255)'
         ))
         db.session.commit()
 
-    # ---- deadline ----
+    # ---- DEADLINE ----
     dcols = {c["name"] for c in insp.get_columns("deadline")}
     if "kind" not in dcols:
         db.session.execute(text(
             "ALTER TABLE deadline ADD COLUMN kind VARCHAR(30) NOT NULL DEFAULT 'дз'"
         ))
         db.session.commit()
-
     if "link" not in dcols:
         db.session.execute(text(
             "ALTER TABLE deadline ADD COLUMN link VARCHAR(500)"
         ))
         db.session.commit()
-
     if "file_path" not in dcols:
         db.session.execute(text(
             "ALTER TABLE deadline ADD COLUMN file_path VARCHAR(500)"
         ))
         db.session.commit()
-
     if "file_name" not in dcols:
         db.session.execute(text(
             "ALTER TABLE deadline ADD COLUMN file_name VARCHAR(255)"
         ))
         db.session.commit()
-
     if "file_size" not in dcols:
         db.session.execute(text(
             "ALTER TABLE deadline ADD COLUMN file_size INTEGER"
         ))
         db.session.commit()
-
     if "file_mime" not in dcols:
         db.session.execute(text(
             "ALTER TABLE deadline ADD COLUMN file_mime VARCHAR(120)"
         ))
         db.session.commit()
+
 
 
 
