@@ -46,23 +46,22 @@
               <div class="font-medium truncate">
                 {% if d.subject %}
                   <span style="color:var(--muted)">{{ d.subject }} • </span>
-                {% endif %}
-                {{ d.title }}
-              </div>
-              <div class="text-sm flex items-center gap-2" style="color:var(--muted)">
-                <span>
-                  {{ d.due_at.strftime('%d.%m.%Y') }}{% if not d.all_day %}, {{ d.due_at.strftime('%H:%M') }}{% endif %}
-                </span>
-
                 {% if d.kind %}
-                  <span class="chip chip--{{ 'lab' if d.kind=='лабораторная'
-                                             else 'hw' if d.kind=='дз'
-                                             else 'ctrl' if d.kind=='контрольная'
-                                             else 'typ' if d.kind=='типовой расчет'
-                                             else 'test' }}">
-                    {{ d.kind }}
-                  </span>
-                {% endif %}
+                  {# карта "человекочитаемый тип" -> "суффикс css-класса" #}
+                  {% set kind_map = {
+                    'лаба': 'lab',
+                    'дз':            'hw',
+                    'кр':   'ctrl',
+                    'тр':'typ',
+                    'тест':          'test',
+                    'коллок':        'col'     # ← НОВОЕ
+                  } %}
+                {% set k = (d.kind or '')|lower %}
+                <span class="chip chip--{{ kind_map.get(k, 'other') }}">
+                  {{ d.kind }}
+                </span>
+              {% endif %}
+
               </div>
             </div>
 

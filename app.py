@@ -1,4 +1,5 @@
 from __future__ import annotations
+from zoneinfo import ZoneInfo
 
 import os
 import csv
@@ -90,7 +91,8 @@ SHEETS = [
         "prefer_total": True,
     },
 ]
-DEADLINE_TYPES = ["контрольная", "лабораторная", "дз", "типовой расчет", "тест"]
+DEADLINE_TYPES = ["кр", "лаба", "дз", "тр", "тест", "коллок"]
+
 
 # ======================= Models =======================
 class User(db.Model, UserMixin):
@@ -272,15 +274,20 @@ def find_score_by_surname(
 @app.route("/")
 @login_required
 def home():
-    now = datetime.utcnow()
-    horizon = now + timedelta(days=10)
+    # --- UTC для запросов в БД (как было) ---
+    utc_now = datetime.utcnow()
+    horizon = utc_now + timedelta(days=10)
     upcoming = (
         Deadline.query
-        .filter(Deadline.due_at >= now, Deadline.due_at <= horizon)
+        .filter(Deadline.due_at >= utc_now, Deadline.due_at <= horizon)
         .order_by(Deadline.due_at.asc())
         .all()
     )
 
+    # --- Локальное время для Питера/Москвы (UTC+3) ---
+    now = datetime.now(ZoneInfo("Europe/Moscow"))
+
+    # Приветствие по локальному часу
     hour = now.hour
     if 5 <= hour < 12:
         greet = "Доброе утро"
@@ -291,7 +298,10 @@ def home():
     else:
         greet = "Доброй ночи"
 
-    uname = current_user.surname or current_user.username
+    # Обращение по username (без фамилии)
+    uname = current_user.username
+
+    # В шаблон отдаём локальное now, чтобы дата отображалась по МСК
     return render_template("index.html", upcoming=upcoming, now=now, greet=greet, uname=uname)
 
 @app.get("/subjects")

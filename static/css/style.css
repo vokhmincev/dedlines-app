@@ -6,7 +6,7 @@
   --card: #ffffff;
   --card-2:#fafafa;
   --line: #e8eaf0;
-
+ 
   --accent: #3b82f6;
 
   --today: #eef5ff;
@@ -18,6 +18,7 @@
   --ctrl:#ef4444;  /* контрольная */
   --typ:#eab308;   /* типовой расчёт */
   --test:#10b981;  /* тест */
+  --colloq:#f59e0b; /* коллок — янтарно-оранжевый */
 }
 
 /* ====== DARK (kept for completeness) ====== */
@@ -40,6 +41,7 @@ html[data-theme="dark"]{
   --ctrl:#ff8f8f;
   --typ:#f2c75c;
   --test:#67d4a7;
+  --colloq:#f2b357; /* чуть светлее для дарка/ультра */
 }
 
 /* ========== BASE LAYOUT ========== */
@@ -177,18 +179,26 @@ html:not([data-theme="dark"]){
 }
 
 /* ===== ЧИПЫ ТИПОВ ДЕДЛАЙНОВ ===== */
+/* база чипов */
 .chip{
-  display:inline-flex; align-items:center; gap:.25rem;
-  font-size:.75rem; padding:.125rem .5rem; border-radius:8px;
-  border: 1px solid color-mix(in srgb, var(--line), white 8%);
-  background: color-mix(in srgb, var(--card), white 3%);
-  color: var(--text);
+  display:inline-flex; align-items:center; gap:.4rem;
+  padding:.15rem .5rem; border-radius:9999px;
+  font-size:.78rem; line-height:1; border:1px solid var(--line);
 }
-.chip--lab { border-color: color-mix(in srgb, var(--lab), transparent 70%); }
-.chip--hw  { border-color: color-mix(in srgb, var(--hw),  transparent 70%); }
-.chip--ctrl{ border-color: color-mix(in srgb, var(--ctrl),transparent 70%); }
-.chip--typ { border-color: color-mix(in srgb, var(--typ), transparent 70%); }
-.chip--test{ border-color: color-mix(in srgb, var(--test),transparent 70%); }
+
+/* существующие (пример, у тебя уже есть похожие): */
+.chip--lab{  background: #1f2a44; color:#9ec5ff; border-color:#31466b; }
+.chip--hw{   background: #1f2a2e; color:#9be7c4; border-color:#2f4b40; }
+.chip--ctrl{ background: #3a2222; color:#ffb3b3; border-color:#5a3232; }
+.chip--typ{  background: #2f2731; color:#e6c8ff; border-color:#463a4d; }
+.chip--test{ background: #1f2b2b; color:#8fe0d6; border-color:#2d4141; }
+
+/* НОВОЕ: коллоквиум */
+.chip--col{  background: #2f2617; color:#f5c46b; border-color:#4a3a1f; }
+
+/* запасной вариант */
+.chip--other{ background:#23262b; color:#c9ced6; border-color:#343a45; }
+
 
 /* =========================
    ULTRA MODE — теперь ОСНОВНОЙ

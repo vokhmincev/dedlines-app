@@ -94,11 +94,15 @@ html[data-theme="dark"] .fc .fc-col-header{ background: color-mix(in srgb, var(-
 .fc-event .fc-event-main{ padding: 4px 8px; }
 
 /* Цвета по типам */
-.fc-event.kind-лабораторная{ border-color: color-mix(in srgb, var(--lab), white 25%); }
-.fc-event.kind-дз{ border-color: color-mix(in srgb, var(--hw), white 25%); }
-.fc-event.kind-контрольная{ border-color: color-mix(in srgb, var(--ctrl), white 25%); }
-.fc-event.kind-типовой-расчет{ border-color: color-mix(in srgb, var(--typ), white 25%); }
-.fc-event.kind-тест{ border-color: color-mix(in srgb, var(--test), white 25%); }
+/* Цвета по типам */
+.fc-event.kind-лаба{ border-color: color-mix(in srgb, var(--lab),  white 25%); }
+.fc-event.kind-дз{            border-color: color-mix(in srgb, var(--hw),   white 25%); }
+.fc-event.kind-кр{   border-color: color-mix(in srgb, var(--ctrl), white 25%); }
+.fc-event.kind-тр{border-color: color-mix(in srgb, var(--typ),  white 25%); }
+.fc-event.kind-тест{          border-color: color-mix(in srgb, var(--test), white 25%); }
+/* НОВОЕ: коллоквиум */
+.fc-event.kind-коллок{        border-color: color-mix(in srgb, var(--colloq), white 25%); }
+
 
 /* ==== WEEK / DAY улучшения ==== */
 .fc .fc-timegrid-axis{
@@ -164,7 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
     slotDuration: '00:30',
     slotLabelInterval: '01:00',
     slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-    dayHeaderFormat: { weekday: 'short', day: '2-digit', month: '2-digit' },
+    dayHeaderFormat: { weekday: 'short' }, // было: weekday + day + month
+
     slotMinTime: '06:00:00',
     slotMaxTime: '24:30:00',
     scrollTime:  '08:00:00',
