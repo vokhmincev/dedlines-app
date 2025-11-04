@@ -94,15 +94,12 @@ html[data-theme="dark"] .fc .fc-col-header{ background: color-mix(in srgb, var(-
 .fc-event .fc-event-main{ padding: 4px 8px; }
 
 /* Цвета по типам */
-/* Цвета по типам */
 .fc-event.kind-лаба{ border-color: color-mix(in srgb, var(--lab),  white 25%); }
-.fc-event.kind-дз{            border-color: color-mix(in srgb, var(--hw),   white 25%); }
+.fc-event.kind-дз{   border-color: color-mix(in srgb, var(--hw),   white 25%); }
 .fc-event.kind-кр{   border-color: color-mix(in srgb, var(--ctrl), white 25%); }
-.fc-event.kind-тр{border-color: color-mix(in srgb, var(--typ),  white 25%); }
-.fc-event.kind-тест{          border-color: color-mix(in srgb, var(--test), white 25%); }
-/* НОВОЕ: коллоквиум */
-.fc-event.kind-коллок{        border-color: color-mix(in srgb, var(--colloq), white 25%); }
-
+.fc-event.kind-тр{   border-color: color-mix(in srgb, var(--typ),  white 25%); }
+.fc-event.kind-тест{ border-color: color-mix(in srgb, var(--test), white 25%); }
+.fc-event.kind-коллок{ border-color: color-mix(in srgb, var(--colloq), white 25%); }
 
 /* ==== WEEK / DAY улучшения ==== */
 .fc .fc-timegrid-axis{
@@ -168,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     slotDuration: '00:30',
     slotLabelInterval: '01:00',
     slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-    dayHeaderFormat: { weekday: 'short' }, // было: weekday + day + month
+    dayHeaderFormat: { weekday: 'short' },
 
     slotMinTime: '06:00:00',
     slotMaxTime: '24:30:00',
@@ -205,9 +202,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (p.subject) parts.push(`<div><b>Предмет:</b> ${p.subject}</div>`);
       if (p.kind) parts.push(`<div><b>Тип:</b> ${p.kind}</div>`);
       parts.push(`<div><b>Срок:</b> ${when}</div>`);
-      if (p.link) {
-        const safe = String(p.link).replace(/"/g, '&quot;');
-        parts.push(`<div style="margin-top:6px"><a href="${safe}" target="_blank" rel="noopener noreferrer">Открыть ссылку ↗</a></div>`);
+
+      // --- ссылки: event.link ИЛИ вложение ---
+      const primaryLink = p.link || p.attachmentUrl;
+      if (primaryLink) {
+        const safe = String(primaryLink).replace(/"/g, '&quot;');
+        const label = p.attachmentName ? `Скачать ${p.attachmentName}` : 'Открыть ссылку ↗';
+        parts.push(
+          `<div style="margin-top:6px">
+             <a href="${safe}" target="_blank" rel="noopener noreferrer">${label}</a>
+           </div>`
+        );
+        if (p.attachmentName && p.attachmentSize) {
+          const kb = Math.max(1, Math.round(+p.attachmentSize / 1024));
+          parts.push(`<div style="opacity:.8">${kb} KB</div>`);
+        }
       }
 
       const content = `
@@ -226,16 +235,20 @@ document.addEventListener('DOMContentLoaded', () => {
         delay: [100, 0],
       });
 
-      // Нативный title как «фоллбек» (если Tippy не загрузится)
-      info.el.title = `${p.rawTitle || info.event.title}\n${when}${p.subject ? '\nПредмет: ' + p.subject : ''}${p.kind ? '\nТип: ' + p.kind : ''}${p.link ? '\nСсылка: ' + p.link : ''}`;
+      // Нативный title как «фоллбек»
+      info.el.title =
+        `${p.rawTitle || info.event.title}\n${when}` +
+        (p.subject ? `\nПредмет: ${p.subject}` : '') +
+        (p.kind ? `\nТип: ${p.kind}` : '') +
+        (primaryLink ? `\nСсылка: ${primaryLink}` : '');
     },
 
-    /* Открываем ссылку события в новой вкладке, если она есть (FullCalendar сам откроет, но в том же окне) */
+    /* Открываем ссылку события/вложение в новой вкладке */
     eventClick: (info) => {
       const p = info.event.extendedProps || {};
-      if (info.event.url || p.link) {
+      const target = info.event.url || p.link || p.attachmentUrl;
+      if (target) {
         info.jsEvent.preventDefault();
-        const target = info.event.url || p.link;
         window.open(target, '_blank', 'noopener');
       }
     },
