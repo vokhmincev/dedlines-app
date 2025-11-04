@@ -414,7 +414,6 @@ def events_feed():
 
     payload = []
     for d in items:
-        # Время для all-day и обычных событий
         if d.all_day:
             start = fmt_d(d.due_at)
             end   = fmt_d(d.due_at + timedelta(days=1))
@@ -422,8 +421,8 @@ def events_feed():
             start = fmt_dt(d.due_at)
             end   = fmt_dt(d.due_at + timedelta(minutes=1))
 
-        # Фоллбек: если обычной ссылки нет — используем ссылку на вложение
-        attachment_url = url_for("download_attachment", fname=d.file_path) if d.file_path else None
+        # абсолютная ссылка на вложение (если есть)
+        attachment_url = url_for("download_attachment", fname=d.file_path, _external=True) if d.file_path else None
         event_url = d.link or attachment_url
 
         payload.append({
@@ -433,26 +432,22 @@ def events_feed():
             "end": end,
             "allDay": bool(d.all_day),
             "classNames": [f"kind-{_slug(d.kind)}"],
-
-            # Всё, что нужно тултипу и на будущее
             "extendedProps": {
                 "subject": d.subject,
                 "kind": d.kind,
                 "rawTitle": d.title,
-                # ВАЖНО: теперь link всегда есть — это либо d.link, либо ссылка на вложение
-                "link": event_url,
-                # Доп. сведения о файле (можно вывести в тултип при желании)
+                "link": event_url,            # чтобы фронт видел ссылку всегда
                 "attachmentUrl": attachment_url,
                 "attachmentName": d.file_name,
                 "attachmentSize": d.file_size,
                 "attachmentMime": d.file_mime,
             },
-
-            # FullCalendar сам открывает event.url — подставим туда тот же event_url
             **({"url": event_url} if event_url else {}),
         })
 
-    return jsonify(payload)
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = "no-store, max-age=0"
+    return resp
 
 
 # ======================= Admin =======================
@@ -700,20 +695,25 @@ def login():
     return render_template("auth/login.html")
 
 # ---- Скачивание вложений (единый маршрут) ----
+# ---- Скачивание вложений (единый маршрут) ----
 @app.get("/uploads/<path:fname>")
-@login_required
 def download_attachment(fname):
     # Раздаём только те файлы, что реально привязаны к дедлайнам
     dl = Deadline.query.filter_by(file_path=fname).first()
     if not dl:
         abort(404)
+
+    # Путь к папке и имя файла передаём позиционными аргументами,
+    # чтобы работать и на старых версиях Flask/Werkzeug.
     return send_from_directory(
-        directory=str(UPLOAD_DIR),
-        path=fname,
+        str(UPLOAD_DIR),
+        fname,
         as_attachment=True,
         download_name=dl.file_name or fname,
         mimetype=dl.file_mime or "application/octet-stream",
+        max_age=0,
     )
+
 
 
 @app.get("/logout")
