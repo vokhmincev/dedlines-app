@@ -571,6 +571,28 @@ def admin_deadlines_list():
     items = Deadline.query.order_by(Deadline.due_at.asc()).all()
     return render_template("admin_deadlines.html", items=items)
 
+# ====== Глобальный гейт для гостей ======
+PUBLIC_ENDPOINTS = {
+    "login",
+    "register",
+    "static",
+    "not_found",
+    "forbidden",
+    "download_attachment",   # ← ДОБАВЬ ЭТО
+}
+
+@app.before_request
+def force_auth_for_all():
+    if current_user.is_authenticated:
+        return
+    # ← доп. защита по пути, чтобы точно пропускать любой /uploads/ даже если endpoint не определился
+    if request.path.startswith("/uploads/"):
+        return
+    endpoint = (request.endpoint or "")
+    if endpoint in PUBLIC_ENDPOINTS or endpoint.startswith("static"):
+        return
+    return redirect(url_for("login", next=request.url))
+
 @app.route("/admin/deadlines/<int:deadline_id>/edit", methods=["GET", "POST"])
 @admin_required
 def admin_deadline_edit(deadline_id):
@@ -690,11 +712,9 @@ def login():
 # ---- Скачивание вложений (единый маршрут) ----
 @app.get("/uploads/<path:fname>")
 def download_attachment(fname):
-    # Раздаём только те файлы, что реально привязаны к дедлайнам
     dl = Deadline.query.filter_by(file_path=fname).first()
     if not dl:
         abort(404)
-    # Путь и имя передаём позиционно — совместимо со старыми Flask/Werkzeug
     return send_from_directory(
         str(UPLOAD_DIR),
         fname,
@@ -703,6 +723,7 @@ def download_attachment(fname):
         mimetype=dl.file_mime or "application/octet-stream",
         max_age=0,
     )
+
 
 @app.get("/logout")
 @login_required
