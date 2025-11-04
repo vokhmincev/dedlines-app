@@ -84,19 +84,22 @@ def _allowed_file(filename: str) -> bool:
 PUBLIC_ENDPOINTS = {
     "login",
     "register",
-    "static",     # статика
+    "static",
     "not_found",
     "forbidden",
-    "download_attachment",  # ← позволяем скачивание вложений без логина
+    "download_attachment",  # ← ДОБАВИТЬ
 }
+
 
 @app.before_request
 def force_auth_for_all():
     if current_user.is_authenticated:
         return
+    # пропускаем прямые запросы к файлам
+    if request.path.startswith("/uploads/"):
+        return
     endpoint = (request.endpoint or "")
-    # Разрешаем публичные эндпоинты и прямой путь к /uploads/
-    if endpoint in PUBLIC_ENDPOINTS or endpoint.startswith("static") or request.path.startswith("/uploads/"):
+    if endpoint in PUBLIC_ENDPOINTS or endpoint.startswith("static"):
         return
     return redirect(url_for("login", next=request.url))
 
