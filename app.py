@@ -16,7 +16,6 @@ from pathlib import Path
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 
-
 import requests
 from flask import (
     Flask, render_template, request, redirect,
@@ -54,9 +53,6 @@ def _compute_db_uri() -> str:
         return "sqlite:////data/site.db"
     return "sqlite:///" + os.path.join(BASE_DIR, "site.db")
 
-
-
-
 app.config["SQLALCHEMY_DATABASE_URI"] = _compute_db_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
@@ -91,6 +87,7 @@ PUBLIC_ENDPOINTS = {
     "static",     # статика
     "not_found",
     "forbidden",
+    "download_attachment",  # ← позволяем скачивание вложений без логина
 }
 
 @app.before_request
@@ -98,7 +95,8 @@ def force_auth_for_all():
     if current_user.is_authenticated:
         return
     endpoint = (request.endpoint or "")
-    if endpoint in PUBLIC_ENDPOINTS or endpoint.startswith("static"):
+    # Разрешаем публичные эндпоинты и прямой путь к /uploads/
+    if endpoint in PUBLIC_ENDPOINTS or endpoint.startswith("static") or request.path.startswith("/uploads/"):
         return
     return redirect(url_for("login", next=request.url))
 
@@ -138,7 +136,6 @@ class User(db.Model, UserMixin):
     tg_id = db.Column(db.BigInteger, nullable=True, index=True)
     tg_username = db.Column(db.String(255), nullable=True)
 
-
     def set_password(self, pwd: str) -> None:
         self.password_hash = generate_password_hash(pwd)
 
@@ -154,13 +151,11 @@ class Deadline(db.Model):
     kind = db.Column(db.String(30), nullable=False, default="дз")
     link = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
     # --- attachment ---
     file_path = db.Column(db.String(500), nullable=True)  # относительный путь/имя на диске
     file_name = db.Column(db.String(255), nullable=True)  # «человеческое» имя
     file_size = db.Column(db.Integer, nullable=True)
     file_mime = db.Column(db.String(120), nullable=True)
-
 
 @login_manager.user_loader
 def load_user(user_id: str):
@@ -168,10 +163,7 @@ def load_user(user_id: str):
 
 # ======================= Helpers =======================
 def _save_upload(fs) -> tuple[str, str, int, str] | None:
-    """
-    Сохраняет FileStorage fs в UPLOAD_DIR с уникальным именем.
-    Возвращает (stored_name, original_name, size, mime) или None.
-    """
+    """Сохраняет FileStorage fs в UPLOAD_DIR с уникальным именем."""
     if not fs or fs.filename == "":
         return None
     if not _allowed_file(fs.filename):
@@ -436,7 +428,7 @@ def events_feed():
                 "subject": d.subject,
                 "kind": d.kind,
                 "rawTitle": d.title,
-                "link": event_url,            # чтобы фронт видел ссылку всегда
+                "link": event_url,            # фронту всегда есть что открыть
                 "attachmentUrl": attachment_url,
                 "attachmentName": d.file_name,
                 "attachmentSize": d.file_size,
@@ -448,7 +440,6 @@ def events_feed():
     resp = jsonify(payload)
     resp.headers["Cache-Control"] = "no-store, max-age=0"
     return resp
-
 
 # ======================= Admin =======================
 @app.get("/admin")
@@ -550,13 +541,16 @@ def admin_add_deadline():
         )
         db.session.add(d)
         db.session.commit()
+
         # --- Broadcast в Telegram (если токен задан и есть привязанные юзеры) ---
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         if token:
             try:
-                text_msg = f"🆕 Новый дедлайн: { _format_deadline_title(d) }\n" \
-                           f"Когда: { d.due_at.strftime('%d.%m.%Y %H:%M') if not d.all_day else d.due_at.strftime('%d.%m.%Y') }"
-        # соберём tg_id всех привязанных
+                text_msg = (
+                    f"🆕 Новый дедлайн: { _format_deadline_title(d) }\n"
+                    f"Когда: { d.due_at.strftime('%d.%m.%Y %H:%M') if not d.all_day else d.due_at.strftime('%d.%m.%Y') }"
+                )
+                # соберём tg_id всех привязанных
                 chat_ids = [u.tg_id for u in User.query.filter(User.tg_id.isnot(None)).all()]
                 for cid in chat_ids:
                     requests.post(
@@ -565,7 +559,7 @@ def admin_add_deadline():
                     )
             except Exception as e:
                 app.logger.warning(f"TG broadcast failed: {e}")
-    
+
         flash("Дедлайн добавлен ✅", "success")
         return redirect(url_for("admin_deadlines_list"))
 
@@ -599,7 +593,7 @@ def admin_deadline_edit(deadline_id):
         if all_day or not time_:
             due_at = datetime.strptime(date, "%Y-%m-%d")
         else:
-            due_at = datetime.strptime(f"{date} {time_}", "%Y-%m-%d %H:%M")
+            due_at = datetime.strptime(f"{date} {time_}", "%Y-%m-%d %H:%М")
 
         # Удаление старого файла (если отмечено)
         if request.form.get("remove_attachment") == "1":
@@ -612,7 +606,6 @@ def admin_deadline_edit(deadline_id):
         if fs and fs.filename:
             saved = _save_upload(fs)
             if saved:
-                # удалить старый
                 _remove_upload(d.file_path)
                 stored, orig, size, mime = saved
                 d.file_path, d.file_name, d.file_size, d.file_mime = stored, orig, size, mime
@@ -695,16 +688,13 @@ def login():
     return render_template("auth/login.html")
 
 # ---- Скачивание вложений (единый маршрут) ----
-# ---- Скачивание вложений (единый маршрут) ----
 @app.get("/uploads/<path:fname>")
 def download_attachment(fname):
     # Раздаём только те файлы, что реально привязаны к дедлайнам
     dl = Deadline.query.filter_by(file_path=fname).first()
     if not dl:
         abort(404)
-
-    # Путь к папке и имя файла передаём позиционными аргументами,
-    # чтобы работать и на старых версиях Flask/Werkzeug.
+    # Путь и имя передаём позиционно — совместимо со старыми Flask/Werkzeug
     return send_from_directory(
         str(UPLOAD_DIR),
         fname,
@@ -713,8 +703,6 @@ def download_attachment(fname):
         mimetype=dl.file_mime or "application/octet-stream",
         max_age=0,
     )
-
-
 
 @app.get("/logout")
 @login_required
@@ -824,9 +812,6 @@ with app.app_context():
             "ALTER TABLE deadline ADD COLUMN file_mime VARCHAR(120)"
         ))
         db.session.commit()
-
-
-
 
 # ======================= Entry =======================
 if __name__ == "__main__":
