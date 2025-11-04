@@ -1,19 +1,25 @@
 from __future__ import annotations
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
+from dotenv import load_dotenv
+load_dotenv()
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, filters, ContextTypes
+)
 
-# берём всё из твоего приложения: модели, БД, хелперы
+# импорт из твоего Flask-приложения
 from app import db, app, User, Deadline, SHEETS, gsheet_to_csv_url, fetch_csv_rows, find_score_by_surname
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TOKEN:
     raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
 
-# ===== helpers =====
+TZ = ZoneInfo("Europe/Moscow")
+
+# ================= helpers =================
 def _fmt_deadline(d: Deadline) -> str:
     when = d.due_at.strftime("%d.%m.%Y") if d.all_day else d.due_at.strftime("%d.%m.%Y %H:%M")
     tag = f"[{d.kind}]" if d.kind else ""
@@ -33,7 +39,7 @@ async def _require_linked(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Use
             return None
         return u
 
-# ===== handlers =====
+# ========= on-demand commands =========
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Я бот дедлайнов.\n"
@@ -69,7 +75,7 @@ async def cmd_next(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     u = await _require_linked(update, ctx)
     if not u:
         return
-    now = datetime.now(ZoneInfo("Europe/Moscow"))
+    now = datetime.now(TZ)
     horizon = now + timedelta(days=10)
     with app.app_context():
         items = (
@@ -117,16 +123,93 @@ async def cmd_scores(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if errors:
         await update.message.reply_text("⚠️ Ошибки:\n" + "\n".join(errors[:5]))
 
+# ========= scheduled jobs (через JobQueue) =========
+async def job_daily_digest(ctx: ContextTypes.DEFAULT_TYPE):
+    """Ежедневная сводка: дедлайны на сегодня и на завтра для всех привязанных пользователей."""
+    now = datetime.now(TZ)
+    today_start = datetime.combine(now.date(), time(0, 0), tzinfo=TZ)
+    tomorrow_start = today_start + timedelta(days=1)
+    after_tomorrow_start = tomorrow_start + timedelta(days=1)
+
+    with app.app_context():
+        users = User.query.filter(User.tg_id.isnot(None)).all()
+
+        # забираем дедлайны на сегодня/завтра разом, чтобы не гонять БД в цикле
+        todays = (
+            Deadline.query
+            .filter(Deadline.due_at >= today_start, Deadline.due_at < tomorrow_start)
+            .order_by(Deadline.due_at.asc())
+            .all()
+        )
+        tomorrows = (
+            Deadline.query
+            .filter(Deadline.due_at >= tomorrow_start, Deadline.due_at < after_tomorrow_start)
+            .order_by(Deadline.due_at.asc())
+            .all()
+        )
+
+    txt_today = "На сегодня дедлайны:\n" + "\n".join(_fmt_deadline(d) for d in todays) if todays else "Сегодня дедлайнов нет 🎉"
+    txt_tomorrow = "На завтра дедлайны:\n" + "\n".join(_fmt_deadline(d) for d in tomorrows) if tomorrows else "На завтра дедлайнов нет 🎉"
+
+    for u in users:
+        # отправляем раздельными сообщениями, чтобы было читабельно
+        try:
+            await ctx.bot.send_message(chat_id=u.tg_id, text=txt_today)
+            await ctx.bot.send_message(chat_id=u.tg_id, text=txt_tomorrow)
+        except Exception:
+            # молча пропускаем (например, если юзер закрыл личку боту)
+            pass
+
+async def job_hourly_reminders(ctx: ContextTypes.DEFAULT_TYPE):
+    """Каждый час напоминаем о дедлайнах, которые начнутся в ближайшие 24 часа."""
+    now = datetime.now(TZ)
+    soon = now + timedelta(hours=24)
+    with app.app_context():
+        users = User.query.filter(User.tg_id.isnot(None)).all()
+        upcoming = (
+            Deadline.query
+            .filter(Deadline.due_at >= now, Deadline.due_at <= soon)
+            .order_by(Deadline.due_at.asc())
+            .all()
+        )
+
+    if not upcoming:
+        return
+
+    text_lines = ["Напоминание: дедлайны в ближайшие 24 часа:\n"] + [_fmt_deadline(d) for d in upcoming[:50]]
+    msg = "\n".join(text_lines)
+    for u in users:
+        try:
+            await ctx.bot.send_message(chat_id=u.tg_id, text=msg)
+        except Exception:
+            pass
+
+# ========= app entry =========
 def main():
     app_ = Application.builder().token(TOKEN).build()
+
+    # команды
     app_.add_handler(CommandHandler("start", cmd_start))
     app_.add_handler(CommandHandler("help", cmd_help))
     app_.add_handler(CommandHandler("bind", cmd_bind))
     app_.add_handler(CommandHandler("next", cmd_next))
     app_.add_handler(CommandHandler("scores", cmd_scores))
+    app_.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_help))  # простая помощь
 
-    # можно добавить простой эхо для отладки
-    app_.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_help))
+    # планировщик
+    # Ежедневная сводка в 09:00 по МСК
+    app_.job_queue.run_daily(
+        job_daily_digest,
+        time=time(9, 0, tzinfo=TZ),
+        name="daily_digest_msk"
+    )
+    # Почасовое напоминание на 24 часа вперёд
+    app_.job_queue.run_repeating(
+        job_hourly_reminders,
+        interval=3600,  # секунд
+        first=10,       # через 10 секунд после старта
+        name="hourly_reminders"
+    )
 
     app_.run_polling(allowed_updates=Update.ALL_TYPES)
 

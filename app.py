@@ -39,11 +39,11 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 def _compute_db_uri() -> str:
     raw = os.getenv("DATABASE_URL")
     if raw:
-        # postgres:// → postgresql+psycopg2://
+        # postgres:// → postgresql+psycopg://
         if raw.startswith("postgres://"):
-            raw = raw.replace("postgres://", "postgresql+psycopg2://", 1)
-        elif raw.startswith("postgresql://") and "+psycopg2" not in raw:
-            raw = raw.replace("postgresql://", "postgresql+psycopg2://", 1)
+            raw = raw.replace("postgres://", "postgresql+psycopg://", 1)
+        elif raw.startswith("postgresql://") and "+psycopg" not in raw and "+psycopg2" not in raw:
+            raw = raw.replace("postgresql://", "postgresql+psycopg://", 1)
 
         if "sslmode=" not in raw:
             sep = "&" if "?" in raw else "?"
@@ -53,6 +53,7 @@ def _compute_db_uri() -> str:
     if os.path.exists("/data"):
         return "sqlite:////data/site.db"
     return "sqlite:///" + os.path.join(BASE_DIR, "site.db")
+
 
 
 
@@ -413,12 +414,17 @@ def events_feed():
 
     payload = []
     for d in items:
+        # Время для all-day и обычных событий
         if d.all_day:
             start = fmt_d(d.due_at)
             end   = fmt_d(d.due_at + timedelta(days=1))
         else:
             start = fmt_dt(d.due_at)
             end   = fmt_dt(d.due_at + timedelta(minutes=1))
+
+        # Фоллбек: если обычной ссылки нет — используем ссылку на вложение
+        attachment_url = url_for("download_attachment", fname=d.file_path) if d.file_path else None
+        event_url = d.link or attachment_url
 
         payload.append({
             "id": d.id,
@@ -427,15 +433,27 @@ def events_feed():
             "end": end,
             "allDay": bool(d.all_day),
             "classNames": [f"kind-{_slug(d.kind)}"],
+
+            # Всё, что нужно тултипу и на будущее
             "extendedProps": {
                 "subject": d.subject,
                 "kind": d.kind,
                 "rawTitle": d.title,
-                "link": d.link,
+                # ВАЖНО: теперь link всегда есть — это либо d.link, либо ссылка на вложение
+                "link": event_url,
+                # Доп. сведения о файле (можно вывести в тултип при желании)
+                "attachmentUrl": attachment_url,
+                "attachmentName": d.file_name,
+                "attachmentSize": d.file_size,
+                "attachmentMime": d.file_mime,
             },
-            **({"url": d.link} if d.link else {}),
+
+            # FullCalendar сам открывает event.url — подставим туда тот же event_url
+            **({"url": event_url} if event_url else {}),
         })
+
     return jsonify(payload)
+
 
 # ======================= Admin =======================
 @app.get("/admin")

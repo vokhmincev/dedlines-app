@@ -6,7 +6,8 @@ requests==2.32.3
 gunicorn==23.0.0
 
 # драйвер Postgres для SQLAlchemy и бота
-psycopg2-binary==2.9.9
+psycopg[binary]==3.2.12
+
 
 # для телеграм-бота (long polling) и планировщика
 python-telegram-bot==20.7
